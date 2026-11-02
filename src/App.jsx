@@ -2173,6 +2173,8 @@ function FlashcardPage({markLearned}){
   // Màu thích ứng sáng/tối: W = trắng(tối) ↔ xanh đen(sáng); FG = màu chữ chính
   const W  = a => dark ? `rgba(255,255,255,${a})` : `rgba(15,23,42,${a})`;
   const FG = dark ? "white" : "#0F172A";
+  const AC = dark ? "#38BDF8" : "#0369A1";   // chữ nhấn xanh
+  const SL = a => dark ? `rgba(148,163,184,${a})` : `rgba(71,85,105,${Math.min(1,+a+0.3)})`; // chữ xám phụ
   const PC = c => dark ? c : ({"#6EE7B7":"#047857","#C4B5FD":"#6D28D9","#FCA5A5":"#DC2626","#FCD34D":"#B45309","#FDE68A":"#92400E"}[c]||c);
   const t = useT();
 
@@ -2467,11 +2469,11 @@ function FlashcardPage({markLearned}){
       <div style={{minHeight:"calc(100vh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#0D1B2E)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:FG,padding:24}}>
         <div className="ba-card" style={{maxWidth:440,width:"100%",padding:28,textAlign:"center",background:W(0.04),border:"1.5px solid rgba(56,189,248,0.3)"}}>
           <div style={{fontSize:52,marginBottom:10}}>{pct>=80?"🏆":pct>=60?"⭐":"📚"}</div>
-          <div style={{fontSize:26,fontWeight:900,color:"#38BDF8",marginBottom:4}}>{retained}/{total2} Ghi nhớ</div>
+          <div style={{fontSize:26,fontWeight:900,color:AC,marginBottom:4}}>{retained}/{total2} Ghi nhớ</div>
           <div style={{fontSize:14,color:W(0.55),marginBottom:8}}>{pct>=80?"Xuất sắc!":pct>=60?"Tốt lắm!":"Luyện thêm nhé!"}</div>
           <div style={{display:"flex",justifyContent:"center",gap:16,marginBottom:12}}>
             <div style={{textAlign:"center"}}>
-              <div style={{fontSize:20,fontWeight:900,color:"#38BDF8"}}>{avgStab}/100</div>
+              <div style={{fontSize:20,fontWeight:900,color:AC}}>{avgStab}/100</div>
               <div style={{fontSize:10,color:W(0.4)}}>🧠 Stability</div>
             </div>
           </div>
@@ -2600,7 +2602,7 @@ function FlashcardPage({markLearned}){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <span style={{fontSize:11,color:W(0.4)}}>{qIdx+1}/{total}</span>
-            <span style={{fontSize:10,color:"rgba(148,163,184,0.6)"}}>{stability}</span>
+            <span style={{fontSize:10,color:SL(0.6)}}>{stability}</span>
             {card.engraved && <span style={{fontSize:10,background:"rgba(16,185,129,0.2)",color:PC("#6EE7B7"),padding:"1px 7px",borderRadius:20}}>✨ Khắc cốt</span>}
           </div>
           <span style={{fontSize:10,color:"rgba(56,189,248,0.7)",fontWeight:700}}>
@@ -2639,13 +2641,13 @@ function FlashcardPage({markLearned}){
 
             {/* ── FRONT ─────────────────────────────────────────── */}
             <div style={{position:"absolute",inset:0,backfaceVisibility:"hidden",WebkitBackfaceVisibility:"hidden",
-              background:`linear-gradient(145deg,${W(0.07)},${W(0.02)})`,
-              backdropFilter:"blur(12px)",borderRadius:24,
-              border:"1.5px solid rgba(56,189,248,0.28)",
-              boxShadow:"0 8px 32px rgba(0,0,0,0.35)",
+              background:dark?`linear-gradient(145deg,${W(0.07)},${W(0.02)})`:"linear-gradient(145deg,#FFFFFF,#EFF6FF)",
+              backdropFilter:dark?"blur(12px)":"none",borderRadius:24,
+              border:dark?"1.5px solid rgba(56,189,248,0.28)":"1.5px solid rgba(37,99,235,0.22)",
+              boxShadow:dark?"0 8px 32px rgba(0,0,0,0.35)":"0 8px 28px rgba(37,99,235,0.16)",
               display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
 
-              <div style={{fontSize:10,color:"rgba(56,189,248,0.55)",marginBottom:8,letterSpacing:2,fontWeight:700}}>
+              <div style={{fontSize:10,color:dark?"rgba(56,189,248,0.55)":"rgba(3,105,161,0.75)",marginBottom:8,letterSpacing:2,fontWeight:700}}>
                 {card.topic} · Bài {card.lesson}
               </div>
 
@@ -2657,7 +2659,7 @@ function FlashcardPage({markLearned}){
 
                 {/* Romaji (toggleable) */}
                 {showRomaji && (
-                  <div style={{fontSize:13,color:"rgba(148,163,184,0.6)",letterSpacing:"0.08em",marginTop:3,marginBottom:0,textAlign:"center",width:"100%"}}>
+                  <div style={{fontSize:13,color:SL(0.6),letterSpacing:"0.08em",marginTop:3,marginBottom:0,textAlign:"center",width:"100%"}}>
                     {card.rom}
                   </div>
                 )}
@@ -2683,7 +2685,7 @@ function FlashcardPage({markLearned}){
               </button>
 
               <div style={{display:"flex",alignItems:"center",gap:6,marginTop:8}}>
-                <span style={{fontSize:11,color:"rgba(148,163,184,0.45)"}}>{t.fcTap}</span>
+                <span style={{fontSize:11,color:SL(0.45)}}>{t.fcTap}</span>
                 {mnemonics[card.jp]?.text && (
                   <span style={{fontSize:9,background:mnemonics[card.jp]?.pinned?"rgba(245,158,11,0.3)":"rgba(245,158,11,0.15)",color:PC("#FCD34D"),padding:"1px 7px",borderRadius:20,border:"1px solid rgba(245,158,11,0.3)",fontWeight:700}}>
                     {mnemonics[card.jp]?.pinned?"📌":"📝"} Có ghi chú
@@ -2694,17 +2696,17 @@ function FlashcardPage({markLearned}){
 
             {/* ── BACK ──────────────────────────────────────────── */}
             <div style={{position:"absolute",inset:0,backfaceVisibility:"hidden",WebkitBackfaceVisibility:"hidden",transform:"rotateY(180deg)",WebkitTransform:"rotateY(180deg)",
-              background:"linear-gradient(145deg,rgba(30,58,138,0.65),rgba(15,23,42,0.92))",
-              backdropFilter:"blur(12px)",borderRadius:24,
-              border:"1.5px solid rgba(56,189,248,0.38)",
-              boxShadow:"0 8px 32px rgba(0,0,0,0.35)",
+              background:dark?"linear-gradient(145deg,rgba(30,58,138,0.65),rgba(15,23,42,0.92))":"linear-gradient(145deg,#F0F9FF,#DBEAFE)",
+              backdropFilter:dark?"blur(12px)":"none",borderRadius:24,
+              border:dark?"1.5px solid rgba(56,189,248,0.38)":"1.5px solid rgba(37,99,235,0.3)",
+              boxShadow:dark?"0 8px 32px rgba(0,0,0,0.35)":"0 8px 28px rgba(37,99,235,0.16)",
               display:"flex",flexDirection:"column",padding:"16px 18px 12px",overflow:"hidden"}}>
 
               {/* Core meaning */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <div>
-                  <div style={{fontSize:24,fontWeight:900,color:"#38BDF8",lineHeight:1,marginBottom:2}}>{card.vn}</div>
-                  {showRomaji && <div style={{fontSize:12,color:"rgba(148,163,184,0.6)"}}>{card.rom}</div>}
+                  <div style={{fontSize:24,fontWeight:900,color:AC,lineHeight:1,marginBottom:2}}>{card.vn}</div>
+                  {showRomaji && <div style={{fontSize:12,color:SL(0.6)}}>{card.rom}</div>}
                   <div style={{fontSize:30,fontWeight:900,color:FG,marginTop:2}}>{card.jp}</div>
                 </div>
                 {/* TTS on back */}
@@ -2722,13 +2724,13 @@ function FlashcardPage({markLearned}){
               {/* Context sentence */}
               {exSentence && (
                 <div style={{background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.18)",borderRadius:10,padding:"7px 10px",marginBottom:8}}>
-                  <div style={{fontSize:10,color:"rgba(56,189,248,0.55)",fontWeight:700,marginBottom:3}}>📝 VÍ DỤ</div>
+                  <div style={{fontSize:10,color:dark?"rgba(56,189,248,0.55)":"rgba(3,105,161,0.75)",fontWeight:700,marginBottom:3}}>📝 VÍ DỤ</div>
                   <div style={{fontSize:13,fontWeight:700,color:FG,marginBottom:1}}>
                     {exSentence.jp.split(card.jp).map((part,i,arr)=>(
-                      <span key={i}>{part}{i<arr.length-1&&<span style={{color:"#38BDF8",textDecoration:"underline"}}>{card.jp}</span>}</span>
+                      <span key={i}>{part}{i<arr.length-1&&<span style={{color:AC,textDecoration:"underline"}}>{card.jp}</span>}</span>
                     ))}
                   </div>
-                  <div style={{fontSize:11,color:"rgba(148,163,184,0.7)"}}>{exSentence.vn}</div>
+                  <div style={{fontSize:11,color:SL(0.7)}}>{exSentence.vn}</div>
                 </div>
               )}
 
@@ -2751,7 +2753,7 @@ function FlashcardPage({markLearned}){
               {/* Action buttons */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                 <button onClick={e=>{e.stopPropagation();setColPanel(true);}}
-                  style={{background:"rgba(37,99,235,0.18)",border:"1px solid rgba(56,189,248,0.28)",color:"#38BDF8",borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                  style={{background:"rgba(37,99,235,0.18)",border:"1px solid rgba(56,189,248,0.28)",color:AC,borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
                   🔎 Colloc
                 </button>
                 <button onClick={e=>{e.stopPropagation();setChunkMode(true);}}
@@ -2864,7 +2866,7 @@ function FlashcardPage({markLearned}){
                       {typeResult.diff.map((d,i)=>(
                         <span key={i} style={{
                           fontSize:20,fontWeight:900,
-                          color:d.ok?"#38BDF8":d.missing?"rgba(148,163,184,0.3)":"#EF4444",
+                          color:d.ok?"#38BDF8":d.missing?SL(0.3):"#EF4444",
                           background:d.ok?"transparent":d.missing?"transparent":"rgba(239,68,68,0.15)",
                           borderRadius:6,padding:"0 3px",
                           textDecoration:d.ok?"none":"underline",
@@ -2885,7 +2887,7 @@ function FlashcardPage({markLearned}){
                 {[
                   {q:0,label:t.fcAgain,sub:"<1d", color:"#EF4444",icon:"🔄"},
                   {q:1,label:t.fcHard, sub:"1-3d",color:"#F59E0B",icon:"😓"},
-                  {q:2,label:t.fcGood, sub:`${Math.max(1,card.interval||1)}d`,color:"#38BDF8",icon:"👍"},
+                  {q:2,label:t.fcGood, sub:`${Math.max(1,card.interval||1)}d`,color:AC,icon:"👍"},
                   {q:3,label:t.fcEasy, sub:`${Math.max(4,(card.interval||1)*2)}d`,color:"#10B981",icon:"✨"},
                 ].map(btn=>(
                   <button key={btn.q} onClick={()=>doAnswer(btn.q)}
@@ -2908,7 +2910,7 @@ function FlashcardPage({markLearned}){
             {[
               {q:0,label:t.fcAgain,sub:"<1 ngày",color:"#EF4444",icon:"🔄"},
               {q:1,label:t.fcHard, sub:"1-3 ngày",color:"#F59E0B",icon:"😓"},
-              {q:2,label:t.fcGood, sub:`${Math.max(1,card.interval||1)}d`,color:"#38BDF8",icon:"👍"},
+              {q:2,label:t.fcGood, sub:`${Math.max(1,card.interval||1)}d`,color:AC,icon:"👍"},
               {q:3,label:t.fcEasy, sub:`${Math.max(4,(card.interval||1)*2)}d`,color:"#10B981",icon:"✨"},
             ].map(btn=>(
               <button key={btn.q} onClick={()=>doAnswer(btn.q)}
