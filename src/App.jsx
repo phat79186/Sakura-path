@@ -2742,33 +2742,6 @@ function FlashcardPage({markLearned}){
                 </div>
               )}
 
-              {/* Shadowing toggle */}
-              {!shadowing && (
-                <button onClick={e=>{e.stopPropagation();setShadowing(true);playTTS(card.jp);}}
-                  style={{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.25)",color:PC("#6EE7B7"),borderRadius:20,padding:"4px 12px",fontSize:10,fontWeight:700,cursor:"pointer",marginBottom:6,alignSelf:"flex-start"}}>
-                  🗣 Shadowing
-                </button>
-              )}
-
-              {/* Action buttons */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                <button onClick={e=>{e.stopPropagation();setColPanel(true);}}
-                  style={{background:"rgba(37,99,235,0.18)",border:"1px solid rgba(56,189,248,0.28)",color:AC,borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                  🔎 Colloc
-                </button>
-                <button onClick={e=>{e.stopPropagation();setChunkMode(true);}}
-                  style={{background:"rgba(124,58,237,0.18)",border:"1px solid rgba(124,58,237,0.28)",color:PC("#C4B5FD"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                  ⚡ Chunk
-                </button>
-                <button onClick={e=>{e.stopPropagation();setShowContext(v=>!v);}}
-                  style={{background:"rgba(5,150,105,0.13)",border:"1px solid rgba(5,150,105,0.28)",color:PC("#6EE7B7"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                  🌟 {showContext?"Ẩn":"Context"}
-                </button>
-                <button onClick={e=>{e.stopPropagation();setShowMnemonic(v=>!v);setMnemDraft(mnemonics[card.jp]?.text||'');}}
-                  style={{background:mnemonics[card.jp]?.text?"rgba(245,158,11,0.2)":"rgba(245,158,11,0.08)",border:`1px solid ${mnemonics[card.jp]?.text?"rgba(245,158,11,0.5)":"rgba(245,158,11,0.25)"}`,color:PC("#FCD34D"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                  📝 {mnemonics[card.jp]?.pinned?"📌":""}Mẹo nhớ
-                </button>
-              </div>
 
               {/* Extended context */}
               {showContext && exSentence && (
