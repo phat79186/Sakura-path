@@ -2170,6 +2170,10 @@ function DeckFilterDropdown({ value, onChange }){
 function FlashcardPage({markLearned}){
   const w=useWidth(); const isMob=w<640;
   const [dark] = useDarkMode();
+  // Màu thích ứng sáng/tối: W = trắng(tối) ↔ xanh đen(sáng); FG = màu chữ chính
+  const W  = a => dark ? `rgba(255,255,255,${a})` : `rgba(15,23,42,${a})`;
+  const FG = dark ? "white" : "#0F172A";
+  const PC = c => dark ? c : ({"#6EE7B7":"#047857","#C4B5FD":"#6D28D9","#FCA5A5":"#DC2626","#FCD34D":"#B45309","#FDE68A":"#92400E"}[c]||c);
   const t = useT();
 
   // ── deck + SRS ────────────────────────────────────────────────────────────
@@ -2460,26 +2464,26 @@ function FlashcardPage({markLearned}){
     const pct      = total2 ? Math.round(retained/total2*100) : 0;
     const avgStab  = Math.round(deck.reduce((a,c)=>a+(c.stability||0),0)/deck.length);
     return (
-      <div style={{minHeight:"calc(100vh - 56px)",background:"linear-gradient(180deg,#0F172A,#0D1B2E)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"white",padding:24}}>
-        <div className="ba-card" style={{maxWidth:440,width:"100%",padding:28,textAlign:"center",background:"rgba(255,255,255,0.04)",border:"1.5px solid rgba(56,189,248,0.3)"}}>
+      <div style={{minHeight:"calc(100vh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#0D1B2E)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:FG,padding:24}}>
+        <div className="ba-card" style={{maxWidth:440,width:"100%",padding:28,textAlign:"center",background:W(0.04),border:"1.5px solid rgba(56,189,248,0.3)"}}>
           <div style={{fontSize:52,marginBottom:10}}>{pct>=80?"🏆":pct>=60?"⭐":"📚"}</div>
           <div style={{fontSize:26,fontWeight:900,color:"#38BDF8",marginBottom:4}}>{retained}/{total2} Ghi nhớ</div>
-          <div style={{fontSize:14,color:"rgba(255,255,255,0.55)",marginBottom:8}}>{pct>=80?"Xuất sắc!":pct>=60?"Tốt lắm!":"Luyện thêm nhé!"}</div>
+          <div style={{fontSize:14,color:W(0.55),marginBottom:8}}>{pct>=80?"Xuất sắc!":pct>=60?"Tốt lắm!":"Luyện thêm nhé!"}</div>
           <div style={{display:"flex",justifyContent:"center",gap:16,marginBottom:12}}>
             <div style={{textAlign:"center"}}>
               <div style={{fontSize:20,fontWeight:900,color:"#38BDF8"}}>{avgStab}/100</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.4)"}}>🧠 Stability</div>
+              <div style={{fontSize:10,color:W(0.4)}}>🧠 Stability</div>
             </div>
           </div>
-          <div style={{height:8,background:"rgba(255,255,255,0.1)",borderRadius:99,marginBottom:16,overflow:"hidden"}}>
+          <div style={{height:8,background:W(0.1),borderRadius:99,marginBottom:16,overflow:"hidden"}}>
             <div className="ba-progress-fill" style={{width:`${pct}%`}}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20}}>
             {[{label:"Again",n:sessionStats.again,c:"#EF4444",icon:"🔴"},{label:"Hard",n:sessionStats.hard,c:"#F59E0B",icon:"🟡"},{label:"Good",n:sessionStats.good,c:"#38BDF8",icon:"🔵"},{label:"Easy",n:sessionStats.easy,c:"#10B981",icon:"🟢"}].map((s,i)=>(
-              <div key={i} style={{background:"rgba(255,255,255,0.06)",borderRadius:12,padding:"8px 4px",border:`1px solid ${s.c}30`,textAlign:"center"}}>
+              <div key={i} style={{background:W(0.06),borderRadius:12,padding:"8px 4px",border:`1px solid ${s.c}30`,textAlign:"center"}}>
                 <div style={{fontSize:14}}>{s.icon}</div>
                 <div style={{fontSize:18,fontWeight:900,color:s.c}}>{s.n}</div>
-                <div style={{fontSize:9,color:"rgba(255,255,255,0.35)"}}>{s.label}</div>
+                <div style={{fontSize:9,color:W(0.35)}}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -2489,10 +2493,10 @@ function FlashcardPage({markLearned}){
           {/* Pinned mnemonics summary */}
           {Object.entries(mnemonics).filter(([,v])=>v.pinned).length > 0 && (
             <div style={{marginTop:20,textAlign:"left"}}>
-              <div style={{fontSize:11,fontWeight:800,color:"#FCD34D",marginBottom:8,letterSpacing:1}}>📌 GHI CHÚ ĐÃ GHIM</div>
+              <div style={{fontSize:11,fontWeight:800,color:PC("#FCD34D"),marginBottom:8,letterSpacing:1}}>📌 GHI CHÚ ĐÃ GHIM</div>
               {Object.entries(mnemonics).filter(([,v])=>v.pinned).map(([jp,v])=>(
                 <div key={jp} style={{background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{fontSize:18,fontWeight:900,color:"#FCD34D",flexShrink:0}}>{jp}</span>
+                  <span style={{fontSize:18,fontWeight:900,color:PC("#FCD34D"),flexShrink:0}}>{jp}</span>
                   <span style={{fontSize:11,color:"rgba(253,230,138,0.8)",fontStyle:"italic",lineHeight:1.5}}>{v.text}</span>
                 </div>
               ))}
@@ -2522,7 +2526,7 @@ function FlashcardPage({markLearned}){
           return (
             <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0}}>
               <div style={{width:8,height:high?20:10,borderRadius:3,background:high?"#38BDF8":"#475569"}}/>
-              <span style={{fontSize:8,color:"rgba(255,255,255,0.4)"}}>{m}</span>
+              <span style={{fontSize:8,color:W(0.4)}}>{m}</span>
             </div>
           );
         })}
@@ -2539,7 +2543,7 @@ function FlashcardPage({markLearned}){
   } : null;
 
   return (
-    <div style={{minHeight:"calc(100vh - 56px)",background:"linear-gradient(180deg,#0F172A,#1E3A5F)",display:"flex",flexDirection:"column",alignItems:"center",color:"white",userSelect:"none",paddingBottom:24}}>
+    <div style={{minHeight:"calc(100vh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#1E3A5F)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",color:FG,userSelect:"none",paddingBottom:24}}>
 
       {/* ── Industry & Level Category Dropdown ─────────────────────────────── */}
       <DeckFilterDropdown value={deckFilter} onChange={(v)=>{setDeckFilter(v);setQIdx(0);setFlipped(false);}}/>
@@ -2547,11 +2551,11 @@ function FlashcardPage({markLearned}){
       {/* ── Top settings bar ─────────────────────────────────────── */}
       <div style={{width:"100%",maxWidth:500,padding:"10px 16px 0",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
         {/* Speed selector */}
-        <div style={{display:"flex",gap:3,background:"rgba(255,255,255,0.07)",borderRadius:20,padding:"3px",flexShrink:0}}>
+        <div style={{display:"flex",gap:3,background:W(0.07),borderRadius:20,padding:"3px",flexShrink:0}}>
           {[{r:0.75,l:"0.75x"},{r:1.0,l:"1x"},{r:1.25,l:"1.25x"}].map(s=>(
             <button key={s.r} onClick={()=>setTtsRate(s.r)}
               style={{background:ttsRate===s.r?"linear-gradient(135deg,#38BDF8,#2563EB)":"transparent",
-                border:"none",color:"white",borderRadius:16,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer",
+                border:"none",color:ttsRate===s.r?"white":FG,borderRadius:16,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer",
                 boxShadow:ttsRate===s.r?"0 2px 8px rgba(37,99,235,0.5)":"none"}}>
               {s.l}
             </button>
@@ -2564,9 +2568,9 @@ function FlashcardPage({markLearned}){
           {key:"typing",    label:"⌨ "+t.fcType,    val:typingMode, set:setTypingMode,tip:"Typing Mode"},
         ].map(btn=>(
           <button key={btn.key} onClick={()=>btn.set(v=>!v)} title={btn.tip}
-            style={{background:btn.val?"linear-gradient(135deg,#38BDF8,#2563EB)":"rgba(255,255,255,0.08)",
-              border:btn.val?"none":"1px solid rgba(255,255,255,0.15)",
-              color:"white",borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",
+            style={{background:btn.val?"linear-gradient(135deg,#38BDF8,#2563EB)":W(0.08),
+              border:btn.val?"none":`1px solid ${W(0.15)}`,
+              color:btn.val?"white":FG,borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",
               boxShadow:btn.val?"0 2px 8px rgba(37,99,235,0.4)":"none"}}>
             {btn.label}
           </button>
@@ -2595,20 +2599,20 @@ function FlashcardPage({markLearned}){
       <div style={{padding:"8px 16px 0",width:"100%",maxWidth:500}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <span style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{qIdx+1}/{total}</span>
+            <span style={{fontSize:11,color:W(0.4)}}>{qIdx+1}/{total}</span>
             <span style={{fontSize:10,color:"rgba(148,163,184,0.6)"}}>{stability}</span>
-            {card.engraved && <span style={{fontSize:10,background:"rgba(16,185,129,0.2)",color:"#6EE7B7",padding:"1px 7px",borderRadius:20}}>✨ Khắc cốt</span>}
+            {card.engraved && <span style={{fontSize:10,background:"rgba(16,185,129,0.2)",color:PC("#6EE7B7"),padding:"1px 7px",borderRadius:20}}>✨ Khắc cốt</span>}
           </div>
           <span style={{fontSize:10,color:"rgba(56,189,248,0.7)",fontWeight:700}}>
             EF {(card.ef||2.5).toFixed(1)} · {(card.avgTime/1000).toFixed(1)}s
           </span>
         </div>
-        <div style={{height:4,background:"rgba(255,255,255,0.07)",borderRadius:99,overflow:"hidden",marginBottom:8}}>
+        <div style={{height:4,background:W(0.07),borderRadius:99,overflow:"hidden",marginBottom:8}}>
           <div className="ba-progress-fill" style={{width:`${progress}%`}}/>
         </div>
         <div style={{display:"flex",gap:4,marginBottom:6}}>
           {[{l:"🔴",n:sessionStats.again},{l:"🟡",n:sessionStats.hard},{l:"🔵",n:sessionStats.good},{l:"🟢",n:sessionStats.easy}].map((s,i)=>(
-            <div key={i} style={{flex:1,background:"rgba(255,255,255,0.05)",borderRadius:7,padding:"3px 2px",textAlign:"center",fontSize:10}}>{s.l} {s.n}</div>
+            <div key={i} style={{flex:1,background:W(0.05),borderRadius:7,padding:"3px 2px",textAlign:"center",fontSize:10}}>{s.l} {s.n}</div>
           ))}
         </div>
       </div>
@@ -2635,7 +2639,7 @@ function FlashcardPage({markLearned}){
 
             {/* ── FRONT ─────────────────────────────────────────── */}
             <div style={{position:"absolute",inset:0,backfaceVisibility:"hidden",WebkitBackfaceVisibility:"hidden",
-              background:"linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.02))",
+              background:`linear-gradient(145deg,${W(0.07)},${W(0.02)})`,
               backdropFilter:"blur(12px)",borderRadius:24,
               border:"1.5px solid rgba(56,189,248,0.28)",
               boxShadow:"0 8px 32px rgba(0,0,0,0.35)",
@@ -2647,7 +2651,7 @@ function FlashcardPage({markLearned}){
 
               <div className="card-content">
                 {/* Big word */}
-                <div style={{fontSize:isMob?48:60,fontWeight:900,color:"white",textShadow:"0 0 24px rgba(56,189,248,0.4)",lineHeight:1,fontFamily:"'Noto Sans JP',sans-serif",marginBottom:4}}>
+                <div style={{fontSize:isMob?48:60,fontWeight:900,color:FG,textShadow:"0 0 24px rgba(56,189,248,0.4)",lineHeight:1,fontFamily:"'Noto Sans JP',sans-serif",marginBottom:4}}>
                   {card.jp}
                 </div>
 
@@ -2669,7 +2673,7 @@ function FlashcardPage({markLearned}){
                   width:38,height:38,borderRadius:50,
                   background:ttsPlaying?"linear-gradient(135deg,#10B981,#059669)":"rgba(56,189,248,0.18)",
                   border:`1.5px solid ${ttsPlaying?"rgba(16,185,129,0.6)":"rgba(56,189,248,0.4)"}`,
-                  color:"white",fontSize:16,cursor:"pointer",
+                  color:FG,fontSize:16,cursor:"pointer",
                   boxShadow:ttsPlaying?"0 0 16px rgba(16,185,129,0.5)":"0 2px 8px rgba(0,0,0,0.3)",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   animation:ttsPlaying?"baBounce 0.8s infinite":"none",
@@ -2681,7 +2685,7 @@ function FlashcardPage({markLearned}){
               <div style={{display:"flex",alignItems:"center",gap:6,marginTop:8}}>
                 <span style={{fontSize:11,color:"rgba(148,163,184,0.45)"}}>{t.fcTap}</span>
                 {mnemonics[card.jp]?.text && (
-                  <span style={{fontSize:9,background:mnemonics[card.jp]?.pinned?"rgba(245,158,11,0.3)":"rgba(245,158,11,0.15)",color:"#FCD34D",padding:"1px 7px",borderRadius:20,border:"1px solid rgba(245,158,11,0.3)",fontWeight:700}}>
+                  <span style={{fontSize:9,background:mnemonics[card.jp]?.pinned?"rgba(245,158,11,0.3)":"rgba(245,158,11,0.15)",color:PC("#FCD34D"),padding:"1px 7px",borderRadius:20,border:"1px solid rgba(245,158,11,0.3)",fontWeight:700}}>
                     {mnemonics[card.jp]?.pinned?"📌":"📝"} Có ghi chú
                   </span>
                 )}
@@ -2701,14 +2705,14 @@ function FlashcardPage({markLearned}){
                 <div>
                   <div style={{fontSize:24,fontWeight:900,color:"#38BDF8",lineHeight:1,marginBottom:2}}>{card.vn}</div>
                   {showRomaji && <div style={{fontSize:12,color:"rgba(148,163,184,0.6)"}}>{card.rom}</div>}
-                  <div style={{fontSize:30,fontWeight:900,color:"white",marginTop:2}}>{card.jp}</div>
+                  <div style={{fontSize:30,fontWeight:900,color:FG,marginTop:2}}>{card.jp}</div>
                 </div>
                 {/* TTS on back */}
                 <button onClick={e=>{e.stopPropagation();playTTS(card.jp);}}
                   style={{width:38,height:38,borderRadius:50,flexShrink:0,
                     background:ttsPlaying?"linear-gradient(135deg,#10B981,#059669)":"rgba(56,189,248,0.15)",
                     border:`1.5px solid ${ttsPlaying?"rgba(16,185,129,0.5)":"rgba(56,189,248,0.35)"}`,
-                    color:"white",fontSize:16,cursor:"pointer",
+                    color:FG,fontSize:16,cursor:"pointer",
                     display:"flex",alignItems:"center",justifyContent:"center",
                     animation:ttsPlaying?"baBounce 0.8s infinite":"none"}}>
                   {ttsPlaying?"🔊":"▶"}
@@ -2719,7 +2723,7 @@ function FlashcardPage({markLearned}){
               {exSentence && (
                 <div style={{background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.18)",borderRadius:10,padding:"7px 10px",marginBottom:8}}>
                   <div style={{fontSize:10,color:"rgba(56,189,248,0.55)",fontWeight:700,marginBottom:3}}>📝 VÍ DỤ</div>
-                  <div style={{fontSize:13,fontWeight:700,color:"white",marginBottom:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:FG,marginBottom:1}}>
                     {exSentence.jp.split(card.jp).map((part,i,arr)=>(
                       <span key={i}>{part}{i<arr.length-1&&<span style={{color:"#38BDF8",textDecoration:"underline"}}>{card.jp}</span>}</span>
                     ))}
@@ -2731,15 +2735,15 @@ function FlashcardPage({markLearned}){
               {/* Shadowing prompt */}
               {shadowing && (
                 <div style={{background:"rgba(16,185,129,0.15)",border:"1px solid rgba(16,185,129,0.35)",borderRadius:10,padding:"6px 10px",marginBottom:6,textAlign:"center",animation:"baBounce 0.6s ease"}}>
-                  <div style={{fontSize:11,color:"#6EE7B7",fontWeight:800}}>🗣 Nhại lại ngay bây giờ!</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:1}}>{card.jp} · {card.rom}</div>
+                  <div style={{fontSize:11,color:PC("#6EE7B7"),fontWeight:800}}>🗣 Nhại lại ngay bây giờ!</div>
+                  <div style={{fontSize:10,color:W(0.5),marginTop:1}}>{card.jp} · {card.rom}</div>
                 </div>
               )}
 
               {/* Shadowing toggle */}
               {!shadowing && (
                 <button onClick={e=>{e.stopPropagation();setShadowing(true);playTTS(card.jp);}}
-                  style={{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.25)",color:"#6EE7B7",borderRadius:20,padding:"4px 12px",fontSize:10,fontWeight:700,cursor:"pointer",marginBottom:6,alignSelf:"flex-start"}}>
+                  style={{background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.25)",color:PC("#6EE7B7"),borderRadius:20,padding:"4px 12px",fontSize:10,fontWeight:700,cursor:"pointer",marginBottom:6,alignSelf:"flex-start"}}>
                   🗣 Shadowing
                 </button>
               )}
@@ -2751,15 +2755,15 @@ function FlashcardPage({markLearned}){
                   🔎 Colloc
                 </button>
                 <button onClick={e=>{e.stopPropagation();setChunkMode(true);}}
-                  style={{background:"rgba(124,58,237,0.18)",border:"1px solid rgba(124,58,237,0.28)",color:"#C4B5FD",borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                  style={{background:"rgba(124,58,237,0.18)",border:"1px solid rgba(124,58,237,0.28)",color:PC("#C4B5FD"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
                   ⚡ Chunk
                 </button>
                 <button onClick={e=>{e.stopPropagation();setShowContext(v=>!v);}}
-                  style={{background:"rgba(5,150,105,0.13)",border:"1px solid rgba(5,150,105,0.28)",color:"#6EE7B7",borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                  style={{background:"rgba(5,150,105,0.13)",border:"1px solid rgba(5,150,105,0.28)",color:PC("#6EE7B7"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
                   🌟 {showContext?"Ẩn":"Context"}
                 </button>
                 <button onClick={e=>{e.stopPropagation();setShowMnemonic(v=>!v);setMnemDraft(mnemonics[card.jp]?.text||'');}}
-                  style={{background:mnemonics[card.jp]?.text?"rgba(245,158,11,0.2)":"rgba(245,158,11,0.08)",border:`1px solid ${mnemonics[card.jp]?.text?"rgba(245,158,11,0.5)":"rgba(245,158,11,0.25)"}`,color:"#FCD34D",borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                  style={{background:mnemonics[card.jp]?.text?"rgba(245,158,11,0.2)":"rgba(245,158,11,0.08)",border:`1px solid ${mnemonics[card.jp]?.text?"rgba(245,158,11,0.5)":"rgba(245,158,11,0.25)"}`,color:PC("#FCD34D"),borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
                   📝 {mnemonics[card.jp]?.pinned?"📌":""}Mẹo nhớ
                 </button>
               </div>
@@ -2768,9 +2772,9 @@ function FlashcardPage({markLearned}){
               {showContext && exSentence && (
                 <div style={{display:"flex",flexDirection:"column",gap:3,marginTop:7}}>
                   {[{label:"😊 Thân mật",jp:exSentence.casual,c:"#D97706"},{label:"🎩 Trang trọng",jp:exSentence.formal,c:"#2563EB"}].map((cx,i)=>(
-                    <div key={i} style={{background:"rgba(255,255,255,0.04)",borderRadius:8,padding:"5px 9px",fontSize:11,border:`1px solid ${cx.c}20`}}>
+                    <div key={i} style={{background:W(0.04),borderRadius:8,padding:"5px 9px",fontSize:11,border:`1px solid ${cx.c}20`}}>
                       <span style={{color:cx.c,fontWeight:700,fontSize:10}}>{cx.label}:</span>
-                      <span style={{color:"rgba(255,255,255,0.6)",marginLeft:6}}>{cx.jp}</span>
+                      <span style={{color:W(0.6),marginLeft:6}}>{cx.jp}</span>
                     </div>
                   ))}
                 </div>
@@ -2780,15 +2784,15 @@ function FlashcardPage({markLearned}){
               {showMnemonic && (
                 <div onClick={e=>e.stopPropagation()} style={{marginTop:8,background:"rgba(245,158,11,0.08)",border:"1.5px solid rgba(245,158,11,0.3)",borderRadius:12,padding:"10px 12px"}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                    <span style={{fontSize:10,fontWeight:800,color:"#FCD34D",letterSpacing:1}}>🧠 MẸO NHỚ CÁ NHÂN</span>
+                    <span style={{fontSize:10,fontWeight:800,color:PC("#FCD34D"),letterSpacing:1}}>🧠 MẸO NHỚ CÁ NHÂN</span>
                     {mnemonics[card.jp]?.text && (
                       <div style={{display:"flex",gap:4}}>
                         <button onClick={()=>togglePin(card.jp)}
-                          style={{background:mnemonics[card.jp]?.pinned?"rgba(245,158,11,0.3)":"rgba(255,255,255,0.08)",border:"1px solid rgba(245,158,11,0.3)",color:"#FCD34D",borderRadius:20,padding:"2px 8px",fontSize:10,cursor:"pointer"}}>
+                          style={{background:mnemonics[card.jp]?.pinned?"rgba(245,158,11,0.3)":W(0.08),border:"1px solid rgba(245,158,11,0.3)",color:PC("#FCD34D"),borderRadius:20,padding:"2px 8px",fontSize:10,cursor:"pointer"}}>
                           {mnemonics[card.jp]?.pinned?"📌 Đã ghim":"📌 Ghim"}
                         </button>
                         <button onClick={()=>{deleteMnemonic(card.jp);setMnemDraft('');}}
-                          style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",color:"#FCA5A5",borderRadius:20,padding:"2px 8px",fontSize:10,cursor:"pointer"}}>
+                          style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",color:PC("#FCA5A5"),borderRadius:20,padding:"2px 8px",fontSize:10,cursor:"pointer"}}>
                           🗑
                         </button>
                       </div>
@@ -2796,7 +2800,7 @@ function FlashcardPage({markLearned}){
                   </div>
                   {/* Show existing note */}
                   {mnemonics[card.jp]?.text && (
-                    <div style={{background:"rgba(245,158,11,0.1)",borderRadius:8,padding:"7px 10px",marginBottom:8,fontSize:12,color:"#FDE68A",lineHeight:1.6,fontStyle:"italic",borderLeft:"3px solid rgba(245,158,11,0.5)"}}>
+                    <div style={{background:"rgba(245,158,11,0.1)",borderRadius:8,padding:"7px 10px",marginBottom:8,fontSize:12,color:PC("#FDE68A"),lineHeight:1.6,fontStyle:"italic",borderLeft:"3px solid rgba(245,158,11,0.5)"}}>
                       "{mnemonics[card.jp].text}"
                     </div>
                   )}
@@ -2806,11 +2810,11 @@ function FlashcardPage({markLearned}){
                     onChange={e=>setMnemDraft(e.target.value)}
                     placeholder={`VD: "${card.jp}" giống âm "${card.rom}" → liên tưởng…`}
                     rows={2}
-                    style={{width:"100%",background:"rgba(15,23,42,0.6)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:8,padding:"7px 9px",fontSize:11,color:"white",outline:"none",resize:"none",fontFamily:"'Nunito',sans-serif",boxSizing:"border-box",lineHeight:1.5}}
+                    style={{width:"100%",background:dark?"rgba(15,23,42,0.6)":"rgba(255,255,255,0.9)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:8,padding:"7px 9px",fontSize:11,color:FG,outline:"none",resize:"none",fontFamily:"'Nunito',sans-serif",boxSizing:"border-box",lineHeight:1.5}}
                   />
                   <div style={{display:"flex",gap:6,marginTop:6}}>
                     <button onClick={()=>{if(mnemDraft.trim())saveMnemonic(card.jp,mnemDraft.trim());}}
-                      style={{flex:1,background:mnemDraft.trim()?"linear-gradient(135deg,#F59E0B,#D97706)":"rgba(255,255,255,0.08)",border:"none",color:"white",borderRadius:10,padding:"6px",fontSize:11,fontWeight:700,cursor:mnemDraft.trim()?"pointer":"default"}}>
+                      style={{flex:1,background:mnemDraft.trim()?"linear-gradient(135deg,#F59E0B,#D97706)":W(0.08),border:"none",color:mnemDraft.trim()?"white":FG,borderRadius:10,padding:"6px",fontSize:11,fontWeight:700,cursor:mnemDraft.trim()?"pointer":"default"}}>
                       💾 Lưu mẹo nhớ
                     </button>
                     <button onClick={async()=>{
@@ -2821,7 +2825,7 @@ function FlashcardPage({markLearned}){
                         setMnemDraft(d.content?.[0]?.text?.trim()||'');
                       } catch { setMnemDraft(''); }
                     }}
-                      style={{background:"rgba(124,58,237,0.2)",border:"1px solid rgba(124,58,237,0.35)",color:"#C4B5FD",borderRadius:10,padding:"6px 10px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                      style={{background:"rgba(124,58,237,0.2)",border:"1px solid rgba(124,58,237,0.35)",color:PC("#C4B5FD"),borderRadius:10,padding:"6px 10px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
                       ✨ AI gợi ý
                     </button>
                   </div>
@@ -2835,9 +2839,9 @@ function FlashcardPage({markLearned}){
         {typingMode && (
           <div style={{marginTop:12,padding:"0 2px"}}>
             {!flipped ? (
-              <div style={{background:"rgba(255,255,255,0.05)",borderRadius:16,padding:"12px 14px",border:"1.5px solid rgba(56,189,248,0.2)"}}>
+              <div style={{background:W(0.05),borderRadius:16,padding:"12px 14px",border:"1.5px solid rgba(56,189,248,0.2)"}}>
                 <div style={{fontSize:11,color:"rgba(56,189,248,0.7)",fontWeight:700,marginBottom:8}}>
-                  ⌨ GÕ LẠI TIẾNG NHẬT: <span style={{color:"rgba(255,255,255,0.6)"}}>{card.vn}</span>
+                  ⌨ GÕ LẠI TIẾNG NHẬT: <span style={{color:W(0.6)}}>{card.vn}</span>
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <input ref={typeInputRef}
@@ -2845,7 +2849,7 @@ function FlashcardPage({markLearned}){
                     onChange={e=>{setTypedAnswer(e.target.value);setTypeResult(null);}}
                     onKeyDown={e=>{if(e.key==="Enter")checkTyping();}}
                     placeholder="Gõ tiếng Nhật..."
-                    style={{flex:1,background:"rgba(15,23,42,0.7)",border:`1.5px solid ${typeResult?typeResult.ok?"rgba(16,185,129,0.6)":"rgba(239,68,68,0.5)":"rgba(56,189,248,0.3)"}`,borderRadius:12,padding:"9px 12px",fontSize:16,color:"white",outline:"none",fontFamily:"'Nunito',sans-serif"}}
+                    style={{flex:1,background:dark?"rgba(15,23,42,0.7)":"rgba(255,255,255,0.9)",border:`1.5px solid ${typeResult?typeResult.ok?"rgba(16,185,129,0.6)":"rgba(239,68,68,0.5)":"rgba(56,189,248,0.3)"}`,borderRadius:12,padding:"9px 12px",fontSize:16,color:FG,outline:"none",fontFamily:"'Nunito',sans-serif"}}
                   />
                   <button onClick={checkTyping}
                     className="ba-btn"
@@ -2869,8 +2873,8 @@ function FlashcardPage({markLearned}){
                       ))}
                     </div>
                     {typeResult.ok
-                      ? <div style={{fontSize:12,color:"#6EE7B7",fontWeight:700}}>✅ Chính xác! Lật thẻ để tiếp tục.</div>
-                      : <div style={{fontSize:12,color:"#FCA5A5"}}>❌ Bạn gõ: <strong>{typeResult.input}</strong> — Đúng: <strong>{card.jp}</strong></div>
+                      ? <div style={{fontSize:12,color:PC("#6EE7B7"),fontWeight:700}}>✅ Chính xác! Lật thẻ để tiếp tục.</div>
+                      : <div style={{fontSize:12,color:PC("#FCA5A5")}}>❌ Bạn gõ: <strong>{typeResult.input}</strong> — Đúng: <strong>{card.jp}</strong></div>
                     }
                   </div>
                 )}
@@ -2885,12 +2889,12 @@ function FlashcardPage({markLearned}){
                   {q:3,label:t.fcEasy, sub:`${Math.max(4,(card.interval||1)*2)}d`,color:"#10B981",icon:"✨"},
                 ].map(btn=>(
                   <button key={btn.q} onClick={()=>doAnswer(btn.q)}
-                    style={{flex:1,background:`${btn.color}18`,border:`1.5px solid ${btn.color}40`,color:"white",borderRadius:14,padding:isMob?"7px 4px":"9px 4px",cursor:"pointer",fontFamily:"'Nunito',sans-serif",transition:"all 0.15s"}}
+                    style={{flex:1,background:`${btn.color}18`,border:`1.5px solid ${btn.color}40`,color:FG,borderRadius:14,padding:isMob?"7px 4px":"9px 4px",cursor:"pointer",fontFamily:"'Nunito',sans-serif",transition:"all 0.15s"}}
                     onMouseEnter={e=>{e.currentTarget.style.background=`${btn.color}30`;e.currentTarget.style.transform="translateY(-2px)";}}
                     onMouseLeave={e=>{e.currentTarget.style.background=`${btn.color}18`;e.currentTarget.style.transform="";}}>
                     <div style={{fontSize:14}}>{btn.icon}</div>
                     <div style={{fontSize:isMob?10:11,fontWeight:800,color:btn.color}}>{btn.label}</div>
-                    <div style={{fontSize:9,color:"rgba(255,255,255,0.3)",marginTop:1}}>{btn.sub}</div>
+                    <div style={{fontSize:9,color:W(0.3),marginTop:1}}>{btn.sub}</div>
                   </button>
                 ))}
               </div>
@@ -2908,12 +2912,12 @@ function FlashcardPage({markLearned}){
               {q:3,label:t.fcEasy, sub:`${Math.max(4,(card.interval||1)*2)}d`,color:"#10B981",icon:"✨"},
             ].map(btn=>(
               <button key={btn.q} onClick={()=>doAnswer(btn.q)}
-                style={{flex:1,background:`${btn.color}18`,border:`1.5px solid ${btn.color}40`,color:"white",borderRadius:14,padding:isMob?"8px 4px":"10px 4px",cursor:"pointer",fontFamily:"'Nunito',sans-serif",transition:"all 0.15s"}}
+                style={{flex:1,background:`${btn.color}18`,border:`1.5px solid ${btn.color}40`,color:FG,borderRadius:14,padding:isMob?"8px 4px":"10px 4px",cursor:"pointer",fontFamily:"'Nunito',sans-serif",transition:"all 0.15s"}}
                 onMouseEnter={e=>{e.currentTarget.style.background=`${btn.color}30`;e.currentTarget.style.transform="translateY(-2px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.background=`${btn.color}18`;e.currentTarget.style.transform="";}}>
                 <div style={{fontSize:15}}>{btn.icon}</div>
                 <div style={{fontSize:isMob?11:12,fontWeight:800,color:btn.color}}>{btn.label}</div>
-                <div style={{fontSize:9,color:"rgba(255,255,255,0.35)",marginTop:1}}>{btn.sub}</div>
+                <div style={{fontSize:9,color:W(0.35),marginTop:1}}>{btn.sub}</div>
               </button>
             ))}
           </div>
@@ -2922,7 +2926,7 @@ function FlashcardPage({markLearned}){
         {!flipped && !typingMode && (
           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 4px 0",opacity:0.38}}>
             <span style={{fontSize:10,color:"#EF4444"}}>← Again</span>
-            <span style={{fontSize:10,color:"rgba(255,255,255,0.4)"}}>↓ Hard</span>
+            <span style={{fontSize:10,color:W(0.4)}}>↓ Hard</span>
             <span style={{fontSize:10,color:"#10B981"}}>Easy →</span>
           </div>
         )}
@@ -3219,7 +3223,7 @@ const w = useWidth(); const isMob = w < 640;
           <div style={{ fontSize:44, marginBottom:8 }}>{p>=70?"🎉":"📚"}</div>
           <div style={{ fontSize:28, fontWeight:900, color:accentColor }}>{sc.correct}/{sc.total}</div>
           <div style={{ fontSize:14, fontWeight:700, color:CC.text, margin:"4px 0 8px" }}>{p>=70?"Đạt yêu cầu! ✓":"Chưa đủ 70% – thử lại nhé!"}</div>
-          <div style={{ height:7, background:"#e5e7eb", borderRadius:99, marginBottom:16, overflow:"hidden" }}>
+          <div style={{ height:7, background:dark?"rgba(255,255,255,0.1)":"#e5e7eb", borderRadius:99, marginBottom:16, overflow:"hidden" }}>
             <div style={{ height:"100%", width:`${p}%`, background:p>=70?"#22c55e":accentColor, borderRadius:99, transition:"width 1s" }}/>
           </div>
           <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
@@ -4650,6 +4654,9 @@ function StreakPage({streak}){
     const t = useT();
 const w=useWidth();const isMob=w<640;
   const CC=useColors();
+  const dark=CC.dark;
+  const W  = a => dark ? `rgba(255,255,255,${a})` : `rgba(15,23,42,${a})`;
+  const FG = dark ? "white" : "#0F172A";
   const {streak:s,highest,learnedToday,activeDays,bumped}=streak;
   const [glowing,setGlowing]=useState(false);
   useEffect(()=>{if(bumped){setGlowing(true);setTimeout(()=>setGlowing(false),2000);}},[bumped]);
@@ -4657,38 +4664,38 @@ const w=useWidth();const isMob=w<640;
   const prevDays=(()=>{const p=MILESTONES.filter(m=>m.days<=s);return p.length?p[p.length-1].days:0;})();
   const pct=nextMile.days===prevDays?100:Math.min(100,Math.round((s-prevDays)/(nextMile.days-prevDays)*100));
   const hitMile=MILESTONES.find(m=>m.days===s);
-  return(<div style={{minHeight:"calc(100vh - 52px)",background:"linear-gradient(135deg,#0f1923,#1a2a3a)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:isMob?"16px":"32px"}}>
-    <div style={{width:"100%",maxWidth:isMob?"100%":460,background:"rgba(255,255,255,0.06)",backdropFilter:"blur(16px)",border:`1px solid ${glowing?"rgba(255,150,0,0.5)":"rgba(255,255,255,0.1)"}`,borderRadius:isMob?20:28,padding:isMob?"20px":"36px 40px",boxShadow:glowing?"0 16px 48px rgba(0,0,0,0.4),0 0 32px rgba(255,150,0,0.25)":"0 16px 48px rgba(0,0,0,0.4)",color:"white"}}>
-      {s===0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(168,218,220,0.12)",border:"1px solid rgba(168,218,220,0.3)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>👋</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Chào mừng đến Sakura Path!</div><div style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>Học bài đầu tiên để bắt đầu chuỗi ngày 🔥</div></div></div>)}
-      {s>0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(255,149,0,0.15)",border:"1px solid rgba(255,149,0,0.4)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>⚠️</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Hôm nay chưa học bài nào!</div><div style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>Làm ít nhất 1 bài để duy trì chuỗi 🔥</div></div></div>)}
-      {learnedToday&&!hitMile&&(<div style={{display:"flex",gap:10,background:"rgba(45,198,83,0.12)",border:"1px solid rgba(45,198,83,0.35)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>✅</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Tuyệt! Bạn đã học hôm nay rồi.</div><div style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>Chuỗi {s} ngày được bảo vệ 🔥</div></div></div>)}
-      {hitMile&&learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(45,198,83,0.15)",border:"1px solid rgba(45,198,83,0.4)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>{hitMile.emoji}</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Chúc mừng mốc {hitMile.days} ngày!</div><div style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{hitMile.msg}</div></div></div>)}
+  return(<div style={{minHeight:"calc(100vh - 52px)",background:dark?"linear-gradient(135deg,#0f1923,#1a2a3a)":"linear-gradient(135deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:isMob?"16px":"32px"}}>
+    <div style={{width:"100%",maxWidth:isMob?"100%":460,background:dark?W(0.06):"rgba(255,255,255,0.85)",backdropFilter:"blur(16px)",border:`1px solid ${glowing?"rgba(255,150,0,0.5)":W(0.1)}`,borderRadius:isMob?20:28,padding:isMob?"20px":"36px 40px",boxShadow:glowing?"0 16px 48px rgba(0,0,0,0.4),0 0 32px rgba(255,150,0,0.25)":"0 16px 48px rgba(0,0,0,0.4)",color:FG}}>
+      {s===0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(168,218,220,0.12)",border:"1px solid rgba(168,218,220,0.3)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>👋</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Chào mừng đến Sakura Path!</div><div style={{fontSize:11,color:W(0.6)}}>Học bài đầu tiên để bắt đầu chuỗi ngày 🔥</div></div></div>)}
+      {s>0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(255,149,0,0.15)",border:"1px solid rgba(255,149,0,0.4)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>⚠️</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Hôm nay chưa học bài nào!</div><div style={{fontSize:11,color:W(0.6)}}>Làm ít nhất 1 bài để duy trì chuỗi 🔥</div></div></div>)}
+      {learnedToday&&!hitMile&&(<div style={{display:"flex",gap:10,background:"rgba(45,198,83,0.12)",border:"1px solid rgba(45,198,83,0.35)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>✅</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Tuyệt! Bạn đã học hôm nay rồi.</div><div style={{fontSize:11,color:W(0.6)}}>Chuỗi {s} ngày được bảo vệ 🔥</div></div></div>)}
+      {hitMile&&learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(45,198,83,0.15)",border:"1px solid rgba(45,198,83,0.4)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>{hitMile.emoji}</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Chúc mừng mốc {hitMile.days} ngày!</div><div style={{fontSize:11,color:W(0.6)}}>{hitMile.msg}</div></div></div>)}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <span style={{fontSize:isMob?56:68,lineHeight:1,filter:"drop-shadow(0 0 16px rgba(255,120,0,0.6))",opacity:s===0?0.3:1}}>🔥</span>
         <div style={{textAlign:"right"}}>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Chuỗi hiện tại</div>
-          <div style={{fontSize:isMob?52:60,fontWeight:900,lineHeight:1,color:s===0?"rgba(255,255,255,0.2)":"transparent",background:s===0?"none":"linear-gradient(135deg,#ff6b35,#ffb703)",WebkitBackgroundClip:s===0?"unset":"text",WebkitTextFillColor:s===0?"rgba(255,255,255,0.2)":"transparent"}}>{s}</div>
-          <div style={{fontSize:14,color:"rgba(255,255,255,0.5)",fontWeight:600}}>ngày liên tiếp</div>
+          <div style={{fontSize:11,color:W(0.5),textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Chuỗi hiện tại</div>
+          <div style={{fontSize:isMob?52:60,fontWeight:900,lineHeight:1,color:s===0?W(0.2):"transparent",background:s===0?"none":"linear-gradient(135deg,#ff6b35,#ffb703)",WebkitBackgroundClip:s===0?"unset":"text",WebkitTextFillColor:s===0?W(0.2):"transparent"}}>{s}</div>
+          <div style={{fontSize:14,color:W(0.5),fontWeight:600}}>ngày liên tiếp</div>
         </div>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:12,padding:"11px 16px",marginBottom:18}}>
-        <span style={{fontSize:18}}>🏆</span><span style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>Kỷ lục cao nhất</span><span style={{fontSize:15,fontWeight:800,color:"#FFD700",marginLeft:"auto"}}>{highest} ngày</span>
+      <div style={{display:"flex",alignItems:"center",gap:8,background:W(0.05),border:`1px solid ${W(0.1)}`,borderRadius:12,padding:"11px 16px",marginBottom:18}}>
+        <span style={{fontSize:18}}>🏆</span><span style={{fontSize:13,color:W(0.6)}}>Kỷ lục cao nhất</span><span style={{fontSize:15,fontWeight:800,color:dark?"#FFD700":"#B45309",marginLeft:"auto"}}>{highest} ngày</span>
       </div>
       <div style={{marginBottom:18}}>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,0.5)",marginBottom:7}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:W(0.5),marginBottom:7}}>
           <span>{s===0?"Học bài đầu tiên để bắt đầu!":s>=100?"Đạt mốc cao nhất!":`Còn ${nextMile.days-s} ngày đến mốc tiếp`}</span>
-          <span style={{color:C.light,fontWeight:700}}>{nextMile.days}d</span>
+          <span style={{color:dark?C.light:C.primary,fontWeight:700}}>{nextMile.days}d</span>
         </div>
-        <div style={{height:8,background:"rgba(255,255,255,0.1)",borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",borderRadius:99,background:"linear-gradient(90deg,#ff6b35,#ffb703,#2DC653)",transition:"width 1s cubic-bezier(.4,0,.2,1)"}}/></div>
+        <div style={{height:8,background:W(0.1),borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",borderRadius:99,background:"linear-gradient(90deg,#ff6b35,#ffb703,#2DC653)",transition:"width 1s cubic-bezier(.4,0,.2,1)"}}/></div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:18}}>
-        {MILESTONES.map(m=>(<div key={m.days} style={{background:s>=m.days?"rgba(45,198,83,0.12)":"rgba(255,255,255,0.04)",border:`1px solid ${s>=m.days?"rgba(45,198,83,0.4)":"rgba(255,255,255,0.08)"}`,borderRadius:12,padding:"12px 6px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:3,filter:s<m.days?"grayscale(1) opacity(0.4)":"none"}}>{m.emoji}</div><div style={{fontSize:13,fontWeight:800,color:C.light}}>{m.days} ngày</div><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:2}}>{m.msg.split("!")[0]}</div></div>))}
+        {MILESTONES.map(m=>(<div key={m.days} style={{background:s>=m.days?"rgba(45,198,83,0.12)":W(0.04),border:`1px solid ${s>=m.days?"rgba(45,198,83,0.4)":W(0.08)}`,borderRadius:12,padding:"12px 6px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:3,filter:s<m.days?"grayscale(1) opacity(0.4)":"none"}}>{m.emoji}</div><div style={{fontSize:13,fontWeight:800,color:dark?C.light:C.primary}}>{m.days} ngày</div><div style={{fontSize:10,color:W(0.4),marginTop:2}}>{m.msg.split("!")[0]}</div></div>))}
       </div>
-      <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:0.5,marginBottom:7}}>14 ngày gần nhất</div>
+      <div style={{fontSize:10,color:W(0.4),textTransform:"uppercase",letterSpacing:0.5,marginBottom:7}}>14 ngày gần nhất</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:14}}>
-        {Array.from({length:14}).map((_,i)=>{const d=nDaysAgo(13-i);const active=activeDays.includes(d);const isToday=d===todayStr()&&!learnedToday;return(<div key={i} style={{aspectRatio:"1",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:600,background:active?"linear-gradient(135deg,#ff6b35,#ffb703)":"rgba(255,255,255,0.05)",border:`1px solid ${isToday?"#FF9500":active?"transparent":"rgba(255,255,255,0.07)"}`,color:active?"white":isToday?"#FF9500":"rgba(255,255,255,0.35)"}}>{new Date(d).getDate()}</div>);})}
+        {Array.from({length:14}).map((_,i)=>{const d=nDaysAgo(13-i);const active=activeDays.includes(d);const isToday=d===todayStr()&&!learnedToday;return(<div key={i} style={{aspectRatio:"1",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:600,background:active?"linear-gradient(135deg,#ff6b35,#ffb703)":W(0.05),border:`1px solid ${isToday?"#FF9500":active?"transparent":W(0.07)}`,color:active?"white":isToday?"#FF9500":W(0.35)}}>{new Date(d).getDate()}</div>);})}
       </div>
-      <p style={{fontSize:11,color:"rgba(255,255,255,0.4)",textAlign:"center",margin:0}}>Hoàn thành bài học mỗi ngày để tăng chuỗi 🔥</p>
+      <p style={{fontSize:11,color:W(0.4),textAlign:"center",margin:0}}>Hoàn thành bài học mỗi ngày để tăng chuỗi 🔥</p>
     </div>
   </div>);
 }
@@ -5633,7 +5640,7 @@ const CC = useColors();
         <span style={{ fontSize:13, color:"#6b7280" }}>Đoạn {pIdx+1} · Câu {qIdx+1}/{p.questions.length}</span>
         <ProgressDots total={totalQ} current={results.length} results={results} color={color}/>
       </div>
-      <div style={{ background:"#f8f9fa", borderRadius:12, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#374151", lineHeight:1.7, border:"1px solid #e5e7eb" }}>
+      <div style={{ background:dark?"rgba(255,255,255,0.05)":"#f8f9fa", borderRadius:12, padding:"10px 14px", marginBottom:12, fontSize:12, color:dark?"#CBD5E1":"#374151", lineHeight:1.7, border:dark?"1px solid rgba(255,255,255,0.1)":"1px solid #e5e7eb" }}>
         📄 {p.passage.slice(0, 80)}…
       </div>
       <div className="ba-card" style={{ padding:isMob?"16px":"22px", marginBottom:12 }}>
@@ -5646,7 +5653,7 @@ const CC = useColors();
       </div>
       {ans && (
         <div>
-          <div style={{ background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:12, padding:"12px 16px", fontSize:13, color:"#0369a1", marginBottom:10 }}>
+          <div style={{ background:dark?"rgba(56,189,248,0.1)":"#f0f9ff", border:dark?"1px solid rgba(56,189,248,0.3)":"1px solid #bae6fd", borderRadius:12, padding:"12px 16px", fontSize:13, color:dark?"#7DD3FC":"#0369a1", marginBottom:10 }}>
             💡 {q.exp}
           </div>
           <button onClick={next}
@@ -18841,7 +18848,7 @@ const CC = useColors();
               ].map((sub,j) => {
                 const sp = sub.total>0?Math.min(100,Math.round(sub.done/sub.total*100)):0;
                 return (
-                  <div key={j} style={{ background:lv.bg, borderRadius:12, padding:"10px 12px" }}>
+                  <div key={j} style={{ background:dark?`${lv.fg}22`:lv.bg, borderRadius:12, padding:"10px 12px" }}>
                     <div style={{ fontSize:11, color:CC.muted, marginBottom:4 }}>{sub.label}</div>
                     <div style={{ fontSize:12, fontWeight:800, color:lv.color, marginBottom:4 }}>{sub.done}<span style={{ fontWeight:400, color:CC.muted }}>/{sub.total}</span></div>
                     <div style={{ background:dark?"rgba(0,0,0,0.2)":"rgba(255,255,255,0.6)", borderRadius:99, height:5, overflow:"hidden" }}>
@@ -20851,7 +20858,7 @@ function KanjiDiagramView() {
                   style={{
                     position:"absolute", left:info.x, top:info.y,
                     display:"flex", alignItems:"center", gap:6,
-                    background: isSel ? `linear-gradient(135deg,${lv.fg},${lv.fg}CC)` : (info.hasChildren ? lv.bg : (dark?"rgba(30,41,59,0.9)":"white")),
+                    background: isSel ? `linear-gradient(135deg,${lv.fg},${lv.fg}CC)` : (info.hasChildren ? (dark?`${lv.fg}22`:lv.bg) : (dark?"rgba(30,41,59,0.9)":"white")),
                     border: isSel ? "none" : `1.5px solid ${isHi?"#B45309":(info.hasChildren?lv.bd:(dark?"rgba(255,255,255,0.12)":"rgba(0,0,0,0.08)"))}`,
                     borderRadius:30, padding: isMob?"6px 12px 6px 6px":"7px 16px 7px 7px",
                     boxShadow: isSel ? "0 6px 20px rgba(0,0,0,0.25)" : "0 1px 4px rgba(0,0,0,0.06)",
@@ -20872,7 +20879,7 @@ function KanjiDiagramView() {
                   }}>{kanji}</span>
                   <span style={{
                     fontSize:10, fontWeight:800, borderRadius:20, padding:"2px 8px",
-                    background: isSel?"rgba(255,255,255,0.25)":lv.bg,
+                    background: isSel?"rgba(255,255,255,0.25)":(dark?`${lv.fg}22`:lv.bg),
                     color: isSel?"white":lv.fg,
                     border: isSel?"none":`1px solid ${lv.bd}`
                   }}>{node.level}</span>
