@@ -1629,14 +1629,14 @@ function Nav({ page, setPage, streakCount, user }) {
                   {/* Mobile extra section: Từ vựng chuyên ngành trong mục Chữ Nhật */}
                   {group.id === "script" && (() => {
                     const specItems = [
-                      { icon:"💻", label:"Công nghệ IT",          color:"#38BDF8" },
-                      { icon:"🍳", label:"Đầu bếp & Nhà hàng",   color:"#F59E0B" },
-                      { icon:"⚙️", label:"Kỹ sư & Cơ khí",       color:"#10B981" },
-                      { icon:"💼", label:"Kinh doanh",            color:"#8B5CF6" },
-                      { icon:"🏥", label:"Y tế & Điều dưỡng",    color:"#EC4899" },
-                      { icon:"🏗️", label:"Xây dựng & Kiến trúc", color:"#F97316" },
-                      { icon:"🌾", label:"Nông nghiệp",           color:"#84CC16" },
-                    ];
+  { value:"💻 IT", icon:"💻", label:"Công nghệ IT", color:"#38BDF8" },
+  { value:"🍳 Đầu bếp", icon:"🍳", label:"Đầu bếp & Nhà hàng", color:"#F59E0B" },
+  { value:"⚙️ Kỹ sư", icon:"⚙️", label:"Kỹ sư & Cơ khí", color:"#10B981" },
+  { value:"💼 Kinh doanh", icon:"💼", label:"Kinh doanh", color:"#8B5CF6" },
+  { value:"🏥 Y tế", icon:"🏥", label:"Y tế & Điều dưỡng", color:"#EC4899" },
+  { value:"🏗️ Xây dựng", icon:"🏗️", label:"Xây dựng & Kiến trúc", color:"#F97316" },
+  { value:"🌾 Nông nghiệp", icon:"🌾", label:"Nông nghiệp", color:"#84CC16" },
+];
                     return (
                       <div style={{
                         marginTop: 10,
@@ -1656,7 +1656,7 @@ function Nav({ page, setPage, streakCount, user }) {
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                           {specItems.map((sp, si) => (
-                            <button key={si} onClick={() => go("flashcard")}
+                            <button key={si} onClick={() => go("vocab", sp.value)}
                               style={{
                                 display: "flex", alignItems: "center", gap: 7,
                                 padding: "8px 9px", border: `1px solid ${sp.color}30`,
