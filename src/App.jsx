@@ -3223,7 +3223,7 @@ const w = useWidth(); const isMob = w < 640;
   // Unlock write tab: recognition ≥ 70%
   const pct = s => s && s.total > 0 ? Math.round(s.correct / s.total * 100) : 0;
   const recPct  = pct(scores.recognize);
-  const writeUnlocked = recPct >= 70 && lisPct >= 70;
+  const writeUnlocked = recPct >= 70;
 
   // ── Shared quiz generator ──
   const makeQ = (pool) => {
