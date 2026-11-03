@@ -433,6 +433,11 @@ if (typeof document !== "undefined") {
       .ba-card::after {
         pointer-events: none;
       }
+      /* Fullscreen sơ đồ Kanji: nền đặc theo theme, không để lộ ::backdrop đen */
+      .kj-viewport:fullscreen { background-color:#F5F9FF !important; border-radius:0 !important; border:none !important; }
+      .kj-viewport:-webkit-full-screen { background-color:#F5F9FF !important; border-radius:0 !important; border:none !important; }
+      :root.dark .kj-viewport:fullscreen { background-color:#0B1120 !important; }
+      :root.dark .kj-viewport:-webkit-full-screen { background-color:#0B1120 !important; }
       /* ════ DARK MODE BASE ════════════════════════════════════ */
       :root.dark body { background: var(--bg, #0B1120) !important; color: var(--text, #E2E8F0) !important; }
       :root.dark { color-scheme: dark; }
@@ -1273,7 +1278,7 @@ function Nav({ page, setPage, streakCount, user }) {
   const activeGroup = groups.find(g => g.items.some(it => it.id === page));
   const activeGroupId = activeGroup ? activeGroup.id : null;
 
-  const go = id => { setPage(id); setOpen(false); setMenu(null); };
+  const go = (id, arg) => { setPage(id, arg); setOpen(false); setMenu(null); };
 
   // Hover chỉ áp dụng cho chuột; chạm/bàn phím dùng click
   const openMenu = id => { clearTimeout(closeTimer.current); setMenu(id); };
@@ -1412,9 +1417,11 @@ function Nav({ page, setPage, streakCount, user }) {
                         style={{ position: "absolute", top: "100%", left: 0, paddingTop: 8, zIndex: 999 }}>
                         <div style={{
                           background: "#0F172A", border: "1px solid rgba(56,189,248,0.15)",
-                          borderRadius: 14, padding: 6, minWidth: 190,
+                          borderRadius: 14, padding: 6,
+                          minWidth: group.id === "script" ? 340 : 190,
                           boxShadow: "0 12px 36px rgba(0,0,0,0.45)"
                         }}>
+                          {/* Regular items */}
                           {group.items.map(item => {
                             const a = page === item.id;
                             return (
@@ -1427,6 +1434,76 @@ function Nav({ page, setPage, streakCount, user }) {
                               </button>
                             );
                           })}
+
+                          {/* Extra section: Chuyên ngành — only for "script" group */}
+                          {group.id === "script" && (() => {
+                            const specItems = [
+                              { value:"💻 IT",          icon:"💻",  label:"Công nghệ IT",          color:"#38BDF8" },
+                              { value:"🍳 Đầu bếp",     icon:"🍳",  label:"Đầu bếp & Nhà hàng",   color:"#F59E0B" },
+                              { value:"⚙️ Kỹ sư",       icon:"⚙️", label:"Kỹ sư & Cơ khí",       color:"#10B981" },
+                              { value:"💼 Kinh doanh",  icon:"💼",  label:"Kinh doanh",            color:"#8B5CF6" },
+                              { value:"🏥 Y tế",        icon:"🏥",  label:"Y tế & Điều dưỡng",    color:"#EC4899" },
+                              { value:"🏗️ Xây dựng",    icon:"🏗️", label:"Xây dựng & Kiến trúc", color:"#F97316" },
+                              { value:"🌾 Nông nghiệp", icon:"🌾",  label:"Nông nghiệp",           color:"#84CC16" },
+                            ];
+                            return (
+                              <>
+                                {/* Divider + header */}
+                                <div style={{
+                                  margin: "6px 4px 4px",
+                                  borderTop: "1px solid rgba(56,189,248,0.12)",
+                                  paddingTop: 8,
+                                }}>
+                                  <div style={{
+                                    fontSize: 9, fontWeight: 800, letterSpacing: "0.1em",
+                                    color: "rgba(249,115,22,0.8)", paddingLeft: 8, paddingBottom: 6,
+                                    display: "flex", alignItems: "center", gap: 6
+                                  }}>
+                                    <span>💼</span>
+                                    <span>TỪ VỰNG CHUYÊN NGÀNH</span>
+                                    <div style={{flex:1, height:1, background:"rgba(249,115,22,0.2)"}}/>
+                                  </div>
+
+                                  {/* 2-column grid of specialty items */}
+                                  <div style={{
+                                    display: "grid", gridTemplateColumns: "1fr 1fr",
+                                    gap: 4, padding: "0 2px"
+                                  }}>
+                                    {specItems.map((sp, si) => (
+                                      <button key={si} role="menuitem"
+                                        onClick={() => go("vocab", sp.value)}
+                                        style={{
+                                          display: "flex", alignItems: "center", gap: 7,
+                                          padding: "6px 8px", border: `1px solid ${sp.color}25`,
+                                          borderRadius: 9, background: `${sp.color}0D`,
+                                          color: "rgba(226,232,240,0.88)",
+                                          font: "600 11.5px 'Nunito',sans-serif",
+                                          textAlign: "left", cursor: "pointer",
+                                          transition: "background 0.12s ease",
+                                        }}
+                                        onMouseEnter={e => {
+                                          e.currentTarget.style.background = `${sp.color}22`;
+                                          e.currentTarget.style.color = sp.color;
+                                        }}
+                                        onMouseLeave={e => {
+                                          e.currentTarget.style.background = `${sp.color}0D`;
+                                          e.currentTarget.style.color = "rgba(226,232,240,0.88)";
+                                        }}
+                                      >
+                                        <span style={{
+                                          width: 22, height: 22, borderRadius: 7, flexShrink: 0,
+                                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                          fontSize: 13, background: `${sp.color}20`,
+                                          border: `1px solid ${sp.color}30`
+                                        }}>{sp.icon}</span>
+                                        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.label}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
@@ -1670,7 +1747,7 @@ function CollocationPanel({ word, rom, vn, dark, onClose }) {
     let cancelled = false;
     const fetch2 = async () => {
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("/api/claude", {
           method: "POST", headers: {"Content-Type":"application/json"},
           body: JSON.stringify({
             model: "claude-sonnet-4-20250514", max_tokens: 700,
@@ -1943,7 +2020,7 @@ function ChunkTrainer({ word, rom, vn, dark, onClose }) {
     }
     setLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:400,
@@ -2084,6 +2161,8 @@ const DECK_FILTER_GROUPS = [
       { value:"⚙️ Kỹ sư",      label:"Kỹ sư, Cơ khí & Xây dựng",      color:"#10B981", icon:"⚙️" },
       { value:"💼 Kinh doanh", label:"Kinh doanh & Thương mại",       color:"#8B5CF6", icon:"💼" },
       { value:"🏥 Y tế",       label:"Y tế & Điều dưỡng (Kaigo)",     color:"#EC4899", icon:"🏥" },
+    { value:"🏗️ Xây dựng",   label:"Xây dựng & Kiến trúc",            color:"#F97316", icon:"🏗️" },
+    { value:"🌾 Nông nghiệp", label:"Nông nghiệp & Chế biến thực phẩm", color:"#84CC16", icon:"🌾" },
     ]
   },
 ];
@@ -2192,11 +2271,13 @@ function FlashcardPage({markLearned}){
     const engCards = VOCAB_ENGINEERING.map(v => ({...v, lesson:"eng", topic:"Kỹ sư & Cơ khí", level_tag:"⚙️ Kỹ sư"}));
     const busCards = VOCAB_BUSINESS.map(v => ({...v, lesson:"bus", topic:"Kinh doanh", level_tag:"💼 Kinh doanh"}));
     const medCards = VOCAB_MEDICAL.map(v => ({...v, lesson:"med", topic:"Y tế & Điều dưỡng", level_tag:"🏥 Y tế"}));
+        const conCards = VOCAB_CONSTRUCTION.map(v => ({...v, lesson:"con", topic:"Xây dựng & Kiến trúc",           level_tag:"🏗️ Xây dựng"}));
+        const agrCards = VOCAB_AGRICULTURE.map(v  => ({...v, lesson:"agr", topic:"Nông nghiệp & Thực phẩm",        level_tag:"🌾 Nông nghiệp"}));
     
     // Deduplicate by jp character
     const seenJp = new Set();
     const baseVocab = [];
-    [...v5Cards, ...v4Cards, ...v3Cards, ...v2Cards, ...v1Cards, ...itCards, ...resCards, ...engCards, ...busCards, ...medCards].forEach(c => {
+    [...v5Cards, ...v4Cards, ...v3Cards, ...v2Cards, ...v1Cards, ...itCards, ...resCards, ...engCards, ...busCards, ...medCards, ...conCards, ...agrCards].forEach(c => {
       if (!seenJp.has(c.jp)) {
         seenJp.add(c.jp);
         baseVocab.push(c);
@@ -2795,7 +2876,7 @@ function FlashcardPage({markLearned}){
                     <button onClick={async()=>{
                       setMnemDraft('⏳ AI đang gợi ý...');
                       try {
-                        const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"Tạo 1 mẹo nhớ sáng tạo tiếng Việt cho từ tiếng Nhật. Ngắn gọn, hài hước, dễ hình dung. Chỉ trả lời mẹo nhớ, không giải thích.",messages:[{role:"user",content:`Từ: ${card.jp} (${card.rom}) = ${card.vn}`}]})});
+                        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"Tạo 1 mẹo nhớ sáng tạo tiếng Việt cho từ tiếng Nhật. Ngắn gọn, hài hước, dễ hình dung. Chỉ trả lời mẹo nhớ, không giải thích.",messages:[{role:"user",content:`Từ: ${card.jp} (${card.rom}) = ${card.vn}`}]})});
                         const d = await res.json();
                         setMnemDraft(d.content?.[0]?.text?.trim()||'');
                       } catch { setMnemDraft(''); }
@@ -3426,7 +3507,7 @@ const w = useWidth(); const isMob = w < 640;
 
         // Build a simple visual similarity score locally first
         // then optionally call AI for detailed feedback
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("/api/claude", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
@@ -3773,7 +3854,7 @@ const w=useWidth();const isMob=w<640;
   const fetchKanji = async (pattern) => {
     setKanjiLoading(true); setKanji(null); setContextEx(null);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:600,
@@ -3792,7 +3873,7 @@ const w=useWidth();const isMob=w<640;
   const fetchContext = async (pattern, meaning) => {
     setCtxLoading(true); setContextEx(null);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:500,
@@ -5072,6 +5153,143 @@ function HomePage({setPage, streak}){
           </div>
         ))}
       </div>
+
+      {/* ══════════ CHUYÊN NGÀNH BOX ══════════ */}
+      {(() => {
+        const specializedDecks = [
+          { value:"💻 IT",         label:"Công nghệ IT",          desc:`${VOCAB_IT.length} từ · Lập trình, DevOps, QA`,           icon:"💻", color:"#38BDF8" },
+          { value:"🍳 Đầu bếp",    label:"Đầu bếp & Nhà hàng",   desc:`${VOCAB_RESTAURANT.length} từ · Bếp, phục vụ, khách sạn`, icon:"🍳", color:"#F59E0B" },
+          { value:"⚙️ Kỹ sư",      label:"Kỹ sư & Cơ khí",       desc:`${VOCAB_ENGINEERING.length} từ · Cơ khí, điện, chế tạo`,  icon:"⚙️", color:"#10B981" },
+          { value:"💼 Kinh doanh", label:"Kinh doanh",            desc:`${VOCAB_BUSINESS.length} từ · Thương mại, văn phòng`,     icon:"💼", color:"#8B5CF6" },
+          { value:"🏥 Y tế",       label:"Y tế & Điều dưỡng",    desc:`${VOCAB_MEDICAL.length} từ · Bệnh viện, kaigo`,           icon:"🏥", color:"#EC4899" },
+          { value:"🏗️ Xây dựng",   label:"Xây dựng & Kiến trúc", desc:`${VOCAB_CONSTRUCTION.length} từ · Công trình, vật liệu`,  icon:"🏗️", color:"#F97316" },
+          { value:"🌾 Nông nghiệp", label:"Nông nghiệp",          desc:`${VOCAB_AGRICULTURE.length} từ · Trồng trọt, chế biến`,  icon:"🌾", color:"#84CC16" },
+        ];
+        return (
+          <div style={{maxWidth:1100,margin:"0 auto 40px",padding:isMob?"0 16px":"0 24px"}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <div style={{
+                width:36,height:36,borderRadius:10,flexShrink:0,
+                background:"linear-gradient(135deg,#F9731622,#F9731644)",
+                border:"1.5px solid #F9731630",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:18,boxShadow:"0 2px 10px #F9731620"
+              }}>💼</div>
+              <div>
+                <div style={{fontWeight:900,fontSize:isMob?15:17,color:CC.text,lineHeight:1}}>Từ Vựng Chuyên Ngành</div>
+                <div style={{fontSize:11,color:CC.muted,marginTop:2}}>7 ngành nghề · Nhật ngữ đi làm thực tế</div>
+              </div>
+              <div style={{flex:1,height:1,background:dark?"rgba(255,255,255,0.06)":"rgba(0,0,0,0.06)",marginLeft:4}}/>
+              <button onClick={()=>setPage("vocab")} className="ba-btn"
+                style={{
+                  fontSize:11,fontWeight:700,color:"#F97316",flexShrink:0,
+                  background:"#F9731612",border:"1px solid #F9731625",
+                  padding:"5px 12px",borderRadius:20
+                }}>Xem tất cả →</button>
+            </div>
+
+            {/* Rectangle box */}
+            <div style={{
+              background:dark
+                ?"linear-gradient(145deg,rgba(15,23,42,0.95),rgba(30,41,59,0.92))"
+                :"linear-gradient(145deg,#ffffff,#f8faff)",
+              border:dark?"1.5px solid rgba(249,115,22,0.22)":"1.5px solid rgba(249,115,22,0.18)",
+              borderRadius:20,
+              boxShadow:dark
+                ?"0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(249,115,22,0.1)"
+                :"0 8px 32px rgba(249,115,22,0.08), 0 2px 8px rgba(0,0,0,0.04)",
+              overflow:"hidden",
+              position:"relative"
+            }}>
+              {/* Top accent bar */}
+              <div style={{
+                height:3,
+                background:"linear-gradient(90deg,#F97316,#F59E0B,#84CC16,#10B981,#38BDF8,#8B5CF6,#EC4899)",
+              }}/>
+
+              {/* Inner label */}
+              <div style={{
+                padding:isMob?"14px 16px 4px":"16px 20px 4px",
+                display:"flex",alignItems:"center",gap:8
+              }}>
+                <span style={{fontSize:10,fontWeight:800,color:dark?"rgba(249,115,22,0.8)":"#F97316",letterSpacing:"0.1em"}}>
+                  💼 TỪ VỰNG NGHỀ NGHIỆP — NHẬT NGỮ ĐI LÀM
+                </span>
+                <div style={{flex:1,height:1,background:dark?"rgba(249,115,22,0.15)":"rgba(249,115,22,0.12)"}}/>
+                <span style={{fontSize:10,color:CC.muted,fontWeight:600}}>
+                  {VOCAB_IT.length+VOCAB_RESTAURANT.length+VOCAB_ENGINEERING.length+VOCAB_BUSINESS.length+VOCAB_MEDICAL.length+VOCAB_CONSTRUCTION.length+VOCAB_AGRICULTURE.length} từ
+                </span>
+              </div>
+
+              {/* Grid of specialty cards */}
+              <div style={{
+                display:"grid",
+                gridTemplateColumns:isMob?"1fr 1fr":isTab?"repeat(3,1fr)":"repeat(4,1fr)",
+                gap:isMob?10:12,
+                padding:isMob?"12px 16px 16px":"14px 20px 20px"
+              }}>
+                {specializedDecks.map((deck,i)=>(
+                  <div key={i}
+                    onClick={()=>setPage("vocab",deck.value)}
+                    className="ba-btn"
+                    style={{
+                      display:"flex",flexDirection:"column",gap:6,
+                      padding:isMob?"12px 12px":"14px 16px",
+                      background:dark?`${deck.color}10`:`${deck.color}08`,
+                      border:`1.5px solid ${deck.color}30`,
+                      borderRadius:14,cursor:"pointer",
+                      transition:"all 0.18s ease",
+                      position:"relative",overflow:"hidden"
+                    }}
+                    onMouseEnter={e=>{
+                      e.currentTarget.style.background=dark?`${deck.color}20`:`${deck.color}15`;
+                      e.currentTarget.style.borderColor=`${deck.color}60`;
+                      e.currentTarget.style.transform="translateY(-2px)";
+                      e.currentTarget.style.boxShadow=`0 6px 20px ${deck.color}25`;
+                    }}
+                    onMouseLeave={e=>{
+                      e.currentTarget.style.background=dark?`${deck.color}10`:`${deck.color}08`;
+                      e.currentTarget.style.borderColor=`${deck.color}30`;
+                      e.currentTarget.style.transform="translateY(0)";
+                      e.currentTarget.style.boxShadow="none";
+                    }}
+                  >
+                    {/* Left accent stripe */}
+                    <div style={{position:"absolute",left:0,top:8,bottom:8,width:3,borderRadius:99,background:deck.color}}/>
+                    <div style={{display:"flex",alignItems:"center",gap:8,paddingLeft:8}}>
+                      <span style={{
+                        width:32,height:32,borderRadius:9,flexShrink:0,
+                        background:`${deck.color}20`,border:`1.5px solid ${deck.color}35`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:16
+                      }}>{deck.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{
+                          fontSize:isMob?11:12,fontWeight:800,
+                          color:dark?"#F1F5F9":CC.text,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"
+                        }}>{deck.label}</div>
+                        <div style={{
+                          fontSize:isMob?9:10,color:CC.muted,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                          marginTop:1
+                        }}>{deck.desc}</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      paddingLeft:8,
+                      display:"flex",alignItems:"center",gap:4,
+                      color:deck.color,fontSize:9,fontWeight:800,letterSpacing:"0.03em"
+                    }}>
+                      <span>Học ngay</span><span style={{fontSize:11}}>→</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ══════════ CTA FINAL ══════════ */}
       <div style={{
@@ -10143,118 +10361,118 @@ const VOCAB_IT = [
   {
     "jp": "統合テスト",
     "rom": "tougoutesuto",
-    "vn": "Kiểm thử tích hợp (Integration test)",
-    "ex": "モジュール間の統合テストを実施する。",
-    "exVn": "Thực hiện kiểm thử tích hợp giữa các module."
+    "vn": "Kiểm thử tích hợp hệ thống",
+    "ex": "来週から統合テストフェーズを開始します。",
+    "exVn": "Bắt đầu giai đoạn kiểm thử tích hợp từ tuần tới."
   },
   {
     "jp": "要件定義",
     "rom": "youkenteigi",
-    "vn": "Xác định yêu cầu (Requirement Definition)",
-    "ex": "顧客と打ち合わせて要件定義を行う。",
-    "exVn": "Họp với khách hàng để xác định yêu cầu dự án."
+    "vn": "Định nghĩa yêu cầu khách hàng (Requirement)",
+    "ex": "要件定義書をお客様とすり合わせる。",
+    "exVn": "Thống nhất tài liệu định nghĩa yêu cầu với khách hàng."
   },
   {
     "jp": "保守",
     "rom": "hoshu",
-    "vn": "Bảo trì hệ thống (Maintenance)",
-    "ex": "システムの運用と保守を担当している。",
-    "exVn": "Phụ trách vận hành và bảo trì hệ thống."
+    "vn": "Bảo trì và vận hành hệ thống",
+    "ex": "システムの保守運用を担当しています。",
+    "exVn": "Tôi phụ trách việc vận hành và bảo trì hệ thống."
   },
   {
     "jp": "変数",
     "rom": "hensuu",
     "vn": "Biến số (Variable)",
-    "ex": "変数の初期化を忘れないようにしてください。",
-    "exVn": "Đừng quên khởi tạo giá trị cho biến."
+    "ex": "変数の名前はわかりやすく命名してください。",
+    "exVn": "Hãy đặt tên biến một cách dễ hiểu."
   },
   {
     "jp": "関数",
     "rom": "kansuu",
-    "vn": "Hàm số / Hàm (Function)",
-    "ex": "共通の処理を関数にまとめる。",
-    "exVn": "Gom các xử lý chung thành một hàm."
+    "vn": "Hàm, hàm số (Function)",
+    "ex": "共通の処理を関数に切り出します。",
+    "exVn": "Tách các xử lý dùng chung thành một hàm."
   },
   {
     "jp": "例外処理",
     "rom": "reigaishori",
     "vn": "Xử lý ngoại lệ (Exception handling)",
-    "ex": "エラー発生時に例外処理を実行する。",
-    "exVn": "Thực thi xử lý ngoại lệ khi có lỗi xảy ra."
+    "ex": "想定外のエラーに対する例外処理を追加する。",
+    "exVn": "Bổ sung xử lý ngoại lệ cho các lỗi ngoài dự kiến."
   },
   {
     "jp": "引数",
     "rom": "hikisuu",
-    "vn": "Tham số truyền vào (Argument/Parameter)",
-    "ex": "関数に必要な引数を渡す。",
+    "vn": "Tham số truyền vào (Argument / Parameter)",
+    "ex": "関数に必要な引数を渡します。",
     "exVn": "Truyền các tham số cần thiết vào hàm."
   },
   {
     "jp": "返り値",
     "rom": "kaerichi",
     "vn": "Giá trị trả về (Return value)",
-    "ex": "関数の返り値をチェックする。",
-    "exVn": "Kiểm tra giá trị trả về của hàm."
+    "ex": "処理が成功した場合、trueを返り値とする。",
+    "exVn": "Nếu xử lý thành công, trả về giá trị là true."
   },
   {
     "jp": "反復",
     "rom": "hampuku",
-    "vn": "Vòng lặp, Lặp lại (Iteration)",
-    "ex": "ループ処理で反復実行する。",
-    "exVn": "Thực thi lặp lại bằng xử lý vòng lặp."
+    "vn": "Vòng lặp, lặp lại (Loop / Iteration)",
+    "ex": "配列の要素を反復処理で走査する。",
+    "exVn": "Duyệt qua các phần tử của mảng bằng xử lý vòng lặp."
   },
   {
     "jp": "脆弱性",
     "rom": "zeijakusei",
     "vn": "Lỗ hổng bảo mật (Vulnerability)",
-    "ex": "システムの脆弱性を診断する。",
-    "exVn": "Chẩn đoán lỗ hổng bảo mật của hệ thống."
+    "ex": "定期的に脆弱性の診断を実施しています。",
+    "exVn": "Định kỳ thực hiện rà soát lỗ hổng bảo mật."
   },
   {
     "jp": "分散処理",
     "rom": "bunsanshori",
-    "vn": "Xử lý phân tán (Distributed processing)",
-    "ex": "ビッグデータを分散処理で高速化する。",
-    "exVn": "Tăng tốc độ bằng xử lý phân tán dữ liệu lớn."
+    "vn": "Xử lý phân tán (Distributed computing)",
+    "ex": "大量のアクセスを分散処理でさばく。",
+    "exVn": "Giải quyết lượng truy cập lớn bằng xử lý phân tán."
   },
   {
     "jp": "認証",
     "rom": "ninshou",
-    "vn": "Xác thực (Authentication)",
-    "ex": "二段階認証を設定する。",
-    "exVn": "Thiết lập xác thực 2 lớp."
+    "vn": "Xác thực danh tính (Authentication)",
+    "ex": "二要素認証を導入してセキュリティを高める。",
+    "exVn": "Áp dụng xác thực hai yếu tố để nâng cao bảo mật."
   },
   {
     "jp": "認可",
-    "rom": "nin ka",
-    "vn": "Cấp quyền (Authorization)",
-    "ex": "管理者権限の認可を与える。",
-    "exVn": "Cấp quyền truy cập cho quản trị viên."
+    "rom": "ninka",
+    "vn": "Cấp quyền truy cập (Authorization)",
+    "ex": "管理者のみに操作の認可を与える。",
+    "exVn": "Chỉ cấp quyền thao tác cho người quản trị."
   },
   {
     "jp": "同期",
     "rom": "douki",
-    "vn": "Đồng bộ hóa (Synchronization)",
-    "ex": "データをクラウドと同期させる。",
-    "exVn": "Đồng bộ dữ liệu với đám mây."
+    "vn": "Đồng bộ (Synchronous)",
+    "ex": "クライアントとサーバーのデータを同期する。",
+    "exVn": "Đồng bộ hóa dữ liệu giữa máy khách và máy chủ."
   },
   {
     "jp": "非同期",
     "rom": "hidouki",
     "vn": "Bất đồng bộ (Asynchronous)",
-    "ex": "非同期処理で画面のフリーズを防ぐ。",
-    "exVn": "Dùng xử lý bất đồng bộ để tránh đơ màn hình."
+    "ex": "非同期通信で画面をリロードせずに更新する。",
+    "exVn": "Cập nhật không cần tải lại trang bằng truyền thông bất đồng bộ."
   },
   {
     "jp": "静的解析",
     "rom": "seitekikaiseki",
-    "vn": "Phân tích mã tĩnh (Static code analysis)",
-    "ex": "静的解析ツールでコードの品質を高める。",
-    "exVn": "Nâng cao chất lượng mã bằng công cụ phân tích tĩnh."
+    "vn": "Phân tích mã tĩnh (Static analysis)",
+    "ex": "コードコミット時に静的解析ツールを実行する。",
+    "exVn": "Chạy công cụ phân tích tĩnh khi commit mã nguồn."
   },
   {
     "jp": "負荷分散",
-    "rom": "hukabunsan",
+    "rom": "fukabunsan",
     "vn": "Cân bằng tải (Load balancing)",
     "ex": "ロードバランサーで負荷分散を行う。",
     "exVn": "Thực hiện cân bằng tải bằng Load Balancer."
@@ -10262,9 +10480,191 @@ const VOCAB_IT = [
   {
     "jp": "冗長化",
     "rom": "jouchouka",
-    "vn": "Dự phòng, Dư thừa (Redundancy)",
-    "ex": "サーバーを冗長化して障害に備える。",
-    "exVn": "Cấu hình dự phòng máy chủ để phòng sự cố."
+    "vn": "Dự phòng / Dự phòng kép (Redundancy)",
+    "ex": "データベースを冗長化して耐障害性を向上させる。",
+    "exVn": "Dự phòng cơ sở dữ liệu để nâng cao khả năng chịu lỗi."
+  },
+  {
+    "jp": "設計書",
+    "rom": "sekkeisho",
+    "vn": "Tài liệu thiết kế kiến trúc hệ thống",
+    "ex": "基本設計書と詳細設計書を作成します。",
+    "exVn": "Tạo tài liệu thiết kế cơ bản và thiết kế chi tiết."
+  },
+  {
+    "jp": "デプロイ",
+    "rom": "depuroi",
+    "vn": "Triển khai phần mềm (Deploy)",
+    "ex": "金曜日の夕方はデプロイを避けてください。",
+    "exVn": "Hãy tránh deploy vào chiều thứ Sáu."
+  },
+  {
+    "jp": "データベース",
+    "rom": "de-tabe-su",
+    "vn": "Cơ sở dữ liệu (Database / DB)",
+    "ex": "データベースのインデックスを再構築する。",
+    "exVn": "Tái tạo chỉ mục (index) của cơ sở dữ liệu."
+  },
+  {
+    "jp": "移行",
+    "rom": "ikou",
+    "vn": "Di chuyển dữ liệu/hệ thống (Migration)",
+    "ex": "旧システムから新環境へのデータ移行が完了した。",
+    "exVn": "Đã hoàn thành chuyển đổi dữ liệu từ hệ thống cũ sang môi trường mới."
+  },
+  {
+    "jp": "リファクタリング",
+    "rom": "rifakutaringu",
+    "vn": "Tối ưu hóa mã nguồn (Refactoring)",
+    "ex": "動作を変えずに可読性を上げるためリファクタリングする。",
+    "exVn": "Tái cấu trúc để tăng tính dễ đọc mà không đổi chức năng."
+  },
+  {
+    "jp": "単体テスト",
+    "rom": "tantaitesuto",
+    "vn": "Kiểm thử đơn vị (Unit Test)",
+    "ex": "単体テストのカバレッジを80%以上に保つ。",
+    "exVn": "Duy trì tỷ lệ bao phủ của kiểm thử đơn vị trên 80%."
+  },
+  {
+    "jp": "結合テスト",
+    "rom": "ketsugoutesuto",
+    "vn": "Kiểm thử tích hợp (Integration Test)",
+    "ex": "APIとの連携部分を結合テストで検証します。",
+    "exVn": "Kiểm tra phần liên kết với API bằng bài test tích hợp."
+  },
+  {
+    "jp": "受入テスト",
+    "rom": "ukeiretesuto",
+    "vn": "Kiểm thử nghiệm thu khách hàng (UAT)",
+    "ex": "お客様による受入テストが無事に合格しました。",
+    "exVn": "Bài kiểm thử nghiệm thu của khách hàng đã đạt yêu cầu suôn sẻ."
+  },
+  {
+    "jp": "工数",
+    "rom": "kousuu",
+    "vn": "Khối lượng công việc / Man-month / Man-day",
+    "ex": "この機能の開発には約3人月の工数を見積もっています。",
+    "exVn": "Ước tính tính năng này cần khoảng 3 người/tháng công sức."
+  },
+  {
+    "jp": "納期",
+    "rom": "nouki",
+    "vn": "Thời hạn bàn giao (Deadline / Delivery date)",
+    "ex": "納期に間に合わせるため優先度を再調整する。",
+    "exVn": "Tái điều chỉnh độ ưu tiên để kịp thời hạn bàn giao."
+  },
+  {
+    "jp": "成果物",
+    "rom": "seikabutsu",
+    "vn": "Thành phẩm / Sản phẩm bàn giao (Deliverables)",
+    "ex": "納品期日までにすべての成果物を提出します。",
+    "exVn": "Nộp toàn bộ các sản phẩm bàn giao trước ngày giao hàng."
+  },
+  {
+    "jp": "進捗",
+    "rom": "shinchoku",
+    "vn": "Tiến độ công việc (Progress)",
+    "ex": "毎朝10分間の朝会で進捗状況を共有する。",
+    "exVn": "Chia sẻ tình hình tiến độ trong cuộc họp ngắn 10 phút mỗi sáng."
+  },
+  {
+    "jp": "不具合",
+    "rom": "fuguai",
+    "vn": "Lỗi phần mềm, khiếm khuyết (Bug / Defect)",
+    "ex": "本番環境で致命的な不具合が見つかりました。",
+    "exVn": "Phát hiện một lỗi nghiêm trọng trên môi trường Production."
+  },
+  {
+    "jp": "改修",
+    "rom": "kaishuu",
+    "vn": "Sửa đổi, nâng cấp chức năng (Fix / Enhancement)",
+    "ex": "ユーザーの要望に基づき画面デザインを改修する。",
+    "exVn": "Sửa đổi giao diện màn hình dựa theo nguyện vọng của người dùng."
+  },
+  {
+    "jp": "権限",
+    "rom": "kengen",
+    "vn": "Quyền hạn tài khoản (Permission / Role)",
+    "ex": "一般ユーザーには閲覧権限のみを付与する。",
+    "exVn": "Chỉ cấp quyền xem đối với người dùng thông thường."
+  },
+  {
+    "jp": "仮想化",
+    "rom": "kasouka",
+    "vn": "Ảo hóa máy chủ / phần mềm (Virtualization)",
+    "ex": "サーバーを仮想化して運用コストを削減する。",
+    "exVn": "Ảo hóa máy chủ để cắt giảm chi phí vận hành."
+  },
+  {
+    "jp": "コンテナ",
+    "rom": "kontena",
+    "vn": "Vùng chứa ứng dụng (Container / Docker)",
+    "ex": "Dockerコンテナを用いて環境差異をなくす。",
+    "exVn": "Dùng Docker container để loại bỏ sự khác biệt môi trường."
+  },
+  {
+    "jp": "通信速度",
+    "rom": "tsuushinsokudo",
+    "vn": "Tốc độ truyền mạng (Network speed)",
+    "ex": "通信速度が低下している原因を調査しています。",
+    "exVn": "Đang điều tra nguyên nhân khiến tốc độ mạng bị chậm."
+  },
+  {
+    "jp": "帯域幅",
+    "rom": "taiikihaba",
+    "vn": "Băng thông mạng (Bandwidth)",
+    "ex": "トラフィックの急増に備えて帯域幅を拡張する。",
+    "exVn": "Mở rộng băng thông để chuẩn bị cho lưu lượng truy cập tăng vọt."
+  },
+  {
+    "jp": "ログ解析",
+    "rom": "rogukaiseki",
+    "vn": "Phân tích nhật ký hệ thống (Log analysis)",
+    "ex": "エラーログを解析して障害の発生箇所を特定した。",
+    "exVn": "Phân tích log lỗi để xác định chính xác vị trí xảy ra sự cố."
+  },
+  {
+    "jp": "復旧",
+    "rom": "fukkyuu",
+    "vn": "Khôi phục hệ thống (Recovery / Restore)",
+    "ex": "バックアップデータから迅速にシステムを復旧させた。",
+    "exVn": "Đã nhanh chóng khôi phục hệ thống từ dữ liệu sao lưu dự phòng."
+  },
+  {
+    "jp": "互換性",
+    "rom": "gokansei",
+    "vn": "Tính tương thích (Compatibility)",
+    "ex": "新バージョンでも旧ブラウザとの互換性を維持する。",
+    "exVn": "Duy trì khả năng tương thích với trình duyệt cũ ở phiên bản mới."
+  },
+  {
+    "jp": "多言語対応",
+    "rom": "tagengotaiou",
+    "vn": "Hỗ trợ đa ngôn ngữ (Localization / i18n)",
+    "ex": "アプリを日本語と英語の多言語対応にする。",
+    "exVn": "Hỗ trợ ứng dụng đa ngôn ngữ tiếng Nhật và tiếng Anh."
+  },
+  {
+    "jp": "拡張機能",
+    "rom": "kakuchoukinou",
+    "vn": "Tiện ích mở rộng, phần bổ trợ (Plugin / Extension)",
+    "ex": "エディタに便利な拡張機能をインストールした。",
+    "exVn": "Đã cài đặt tiện ích mở rộng tiện lợi vào trình soạn thảo code."
+  },
+  {
+    "jp": "直列処理",
+    "rom": "chokuretsushori",
+    "vn": "Xử lý tuần tự / nối tiếp (Serial processing)",
+    "ex": "依存関係のあるタスクは直列処理で行います。",
+    "exVn": "Các tác vụ có quan hệ phụ thuộc sẽ được xử lý tuần tự."
+  },
+  {
+    "jp": "並列処理",
+    "rom": "heiretsushori",
+    "vn": "Xử lý song song (Parallel processing)",
+    "ex": "マルチスレッドで並列処理を実行して高速化を図る。",
+    "exVn": "Tăng tốc bằng cách thực hiện xử lý song song đa luồng."
   }
 ];
 
@@ -10272,177 +10672,296 @@ const VOCAB_RESTAURANT = [
   {
     "jp": "厨房",
     "rom": "chuubou",
-    "vn": "Nhà bếp, Phòng bếp (Kitchen)",
-    "ex": "厨房の中は常に清潔に保ちます。",
-    "exVn": "Bên trong nhà bếp luôn giữ gìn sạch sẽ."
+    "vn": "Nhà bếp, gian bếp nấu",
+    "ex": "厨房内は常に清潔に保たなければなりません。",
+    "exVn": "Bên trong gian bếp lúc nào cũng phải giữ gìn sạch sẽ."
   },
   {
     "jp": "仕込み",
     "rom": "shikomi",
-    "vn": "Sơ chế, Chuẩn bị nguyên liệu",
-    "ex": "開店前に営業の仕込みを終わらせる。",
-    "exVn": "Hoàn thành chuẩn bị nguyên liệu trước khi mở cửa."
+    "vn": "Sơ chế nguyên liệu trước giờ mở cửa",
+    "ex": "毎朝開店の2時間前から仕込みを始めます。",
+    "exVn": "Mỗi sáng bắt đầu sơ chế nguyên liệu trước giờ mở cửa 2 tiếng."
   },
   {
     "jp": "調理",
     "rom": "chouri",
-    "vn": "Nấu nướng, Chế biến thức ăn",
-    "ex": "食材の旨味を引き出す調理法。",
-    "exVn": "Phương pháp chế biến làm nổi bật vị ngon nguyên liệu."
+    "vn": "Nấu nướng, chế biến món ăn",
+    "ex": "正しい手順で安全に調理を行う。",
+    "exVn": "Thực hiện nấu nướng an toàn theo đúng quy trình."
   },
   {
     "jp": "炒める",
     "rom": "itameru",
-    "vn": "Xào (Frying/Stir-fry)",
-    "ex": "強火で野菜を素早く炒める。",
-    "exVn": "Xào nhanh rau củ trên lửa lớn."
+    "vn": "Xào nhanh trên lửa lớn",
+    "ex": "強火で野菜を手早く炒めます。",
+    "exVn": "Xào rau nhanh tay trên ngọn lửa lớn."
   },
   {
     "jp": "煮る",
     "rom": "niru",
-    "vn": "Kho, Ninh, Nấu (Boiling/Simmering)",
-    "ex": "弱火でじっくり肉を煮込む。",
-    "exVn": "Ninh thịt kỹ trên lửa nhỏ."
+    "vn": "Kho, nấu, hầm kỹ",
+    "ex": "弱火で味が染み込むまでじっくり煮る。",
+    "exVn": "Kho nhỏ lửa cho đến khi gia vị ngấm đều."
   },
   {
     "jp": "蒸す",
     "rom": "musu",
-    "vn": "Hấp (Steaming)",
-    "ex": "蒸し器でシュウマイを蒸す。",
-    "exVn": "Hấp xíu mại bằng nồi hấp."
+    "vn": "Hấp cách thủy bằng hơi nước",
+    "ex": "蒸し器で15分ほどふっくらと蒸します。",
+    "exVn": "Hấp trong nồi hấp khoảng 15 phút cho chín mềm xốp."
   },
   {
     "jp": "揚げる",
     "rom": "ageru",
-    "vn": "Chiên, Rán (Deep-frying)",
-    "ex": "180度の油で天ぷらを揚げる。",
-    "exVn": "Chiên tempura trong dầu 180 độ."
+    "vn": "Chiên ngập dầu (Rán giòn)",
+    "ex": "180度の油でカラッと揚げてください。",
+    "exVn": "Hãy chiên ngập dầu ở nhiệt độ 180 độ C cho giòn rụm."
   },
   {
     "jp": "調味料",
     "rom": "choumiryou",
-    "vn": "Gia vị (Seasoning)",
-    "ex": "醤油やみそなどの基本調味料。",
-    "exVn": "Các gia vị cơ bản như xì dầu và tương miso."
+    "vn": "Gia vị nêm nếm",
+    "ex": "料理の基本は調味料のバランスです。",
+    "exVn": "Nền tảng của nấu ăn là sự cân bằng giữa các loại gia vị."
   },
   {
     "jp": "盛り付け",
     "rom": "moritsuke",
-    "vn": "Trình bày món ăn (Plating)",
-    "ex": "お皿に綺麗に盛り付けをする。",
-    "exVn": "Trình bày món ăn đẹp mắt lên đĩa."
+    "vn": "Bày trí món ăn lên đĩa",
+    "ex": "彩りよくきれいに盛り付けてください。",
+    "exVn": "Hãy bày trí món ăn lên đĩa thật đẹp mắt và hài hòa màu sắc."
   },
   {
     "jp": "衛生管理",
     "rom": "eiseikanri",
     "vn": "Quản lý vệ sinh an toàn thực phẩm",
-    "ex": "食中毒を防ぐために衛生管理を徹底する。",
-    "exVn": "Triệt để quản lý vệ sinh để phòng ngộ độc thực phẩm."
+    "ex": "飲食店において徹底した衛生管理は最も重要だ。",
+    "exVn": "Trong ngành ẩm thực, quản lý vệ sinh nghiêm ngặt là điều quan trọng nhất."
   },
   {
     "jp": "まな板",
     "rom": "manaita",
-    "vn": "Cái thớt (Cutting board)",
-    "ex": "肉用と野菜用でまな板を分ける。",
-    "exVn": "Phân chia thớt thái thịt và thớt thái rau."
+    "vn": "Cái thớt thái đồ",
+    "ex": "肉用と野菜用でまな板を使い分ける。",
+    "exVn": "Dùng riêng thớt thái thịt và thớt thái rau củ."
   },
   {
     "jp": "包丁",
     "rom": "houchou",
-    "vn": "Dao làm bếp (Chef knife)",
-    "ex": "包丁を研いで切れ味を良くする。",
-    "exVn": "Mài dao bếp cho sắc bén."
+    "vn": "Con dao làm bếp",
+    "ex": "仕事終わりに包丁を丁寧に研ぎます。",
+    "exVn": "Cuối giờ làm việc, mài dao làm bếp một cách cẩn thận."
   },
   {
     "jp": "接客",
     "rom": "sekkyaku",
-    "vn": "Phục vụ khách hàng (Customer service)",
-    "ex": "笑顔で丁寧な接客を心がける。",
-    "exVn": "Luôn chú ý phục vụ khách hàng lịch sự kèm nụ cười."
+    "vn": "Tiếp đón và phục vụ khách hàng",
+    "ex": "笑顔と明るい挨拶で接客を心がけましょう。",
+    "exVn": "Hãy luôn phục vụ khách hàng với nụ cười và lời chào tươi vui."
   },
   {
     "jp": "会計",
     "rom": "kaikei",
-    "vn": "Tính tiền, Thanh toán (Bill/Checkout)",
-    "ex": "レジでお会計をお願いいたします。",
-    "exVn": "Xin mời thanh toán tại quầy thu ngân."
+    "vn": "Thanh toán tính tiền",
+    "ex": "レジでお客様のお会計をお願いします。",
+    "exVn": "Nhờ bạn thanh toán tính tiền cho khách tại quầy thu ngân."
   },
   {
     "jp": "下ごしらえ",
     "rom": "shitagoshirae",
-    "vn": "Sơ chế ban đầu (Pre-cooking prep)",
-    "ex": "魚の下ごしらえを丁寧に行う。",
-    "exVn": "Tỉ mỉ sơ chế cá trước khi nấu."
+    "vn": "Công đoạn chuẩn bị trước khi nấu",
+    "ex": "肉の下ごしらえに下味をつけておく。",
+    "exVn": "Tẩm ướp gia vị sơ bộ trong khâu chuẩn bị thịt."
   },
   {
     "jp": "湯通し",
-    "rom": "yudoushi",
-    "vn": "Chần nước sôi (Blanching)",
-    "ex": "野菜を湯通しして色鮮やかにする。",
-    "exVn": "Chần rau qua nước sôi để giữ màu tươi."
+    "rom": "yudooshi",
+    "vn": "Chần sơ qua nước sôi",
+    "ex": "野菜の青みを残すためサッと湯通しする。",
+    "exVn": "Chần nhanh qua nước sôi để giữ màu xanh tươi của rau."
   },
   {
     "jp": "あく抜き",
     "rom": "akunuki",
-    "vn": "Khử vị đắng / Hớt bọt",
-    "ex": "ゴボウのアク抜きをする。",
-    "exVn": "Ngâm ngưu bàng để khử vị đắng chát."
+    "vn": "Khử chất đắng / Vớt bọt nước dùng",
+    "ex": "ごぼうを切ったら水にさらしてあく抜きをする。",
+    "exVn": "Cắt ngưu bàng xong thì ngâm nước để khử vị đắng chát."
   },
   {
     "jp": "隠し味",
     "rom": "kakushiaji",
-    "vn": "Gia vị bí mật (Secret ingredient)",
-    "ex": "カレーに隠し味としてコーヒーを入れる。",
-    "exVn": "Cho cà phê vào cà ri như một gia vị bí mật."
+    "vn": "Gia vị bí mật tạo chiều sâu hương vị",
+    "ex": "カレーの隠し味にチョコレートを少量加える。",
+    "exVn": "Cho thêm một ít sô-cô-la làm vị bí mật cho món cà ri."
   },
   {
     "jp": "賞味期限",
     "rom": "shoumikigen",
-    "vn": "Hạn sử dụng ngon nhất (Best before)",
-    "ex": "賞味期限をチェックして食材を管理する。",
-    "exVn": "Kiểm tra hạn sử dụng để quản lý nguyên liệu."
+    "vn": "Hạn sử dụng tốt nhất (Best before)",
+    "ex": "賞味期限が切れる前に使い切ってください。",
+    "exVn": "Hãy dùng hết nguyên liệu trước khi hết hạn ngon nhất."
   },
   {
     "jp": "消費期限",
     "rom": "shouhikigen",
-    "vn": "Hạn dùng an toàn (Expiration date)",
-    "ex": "消費期限が切れた食材は廃棄する。",
-    "exVn": "Vứt bỏ nguyên liệu đã quá hạn tiêu dùng."
+    "vn": "Hạn dùng an toàn tuyệt đối (Use by)",
+    "ex": "生鮮食品は消費期限を厳守する必要があります。",
+    "exVn": "Thực phẩm tươi sống bắt buộc phải tuân thủ nghiêm hạn dùng."
   },
   {
     "jp": "賄い",
     "rom": "makanai",
-    "vn": "Cơm nhân viên (Staff meal)",
-    "ex": "今日の賄いは特製ラーメンだ。",
-    "exVn": "Bữa cơm nhân viên hôm nay là mì ramen đặc biệt."
+    "vn": "Bữa cơm nhân viên nhà bếp",
+    "ex": "今日の賄いは特製チャーハンです。",
+    "exVn": "Cơm nhân viên hôm nay là món cơm chiên đặc biệt."
   },
   {
     "jp": "品切れ",
     "rom": "shinagire",
-    "vn": "Hết hàng, Hết món (Out of stock)",
-    "ex": "人気メニューが品切れになった。",
-    "exVn": "Món ăn nổi tiếng đã bị hết."
+    "vn": "Hết món ăn / Hết hàng bán",
+    "ex": "本日のおすすめ魚料理は品切れとなりました。",
+    "exVn": "Món cá gợi ý hôm nay đã hết suất phục vụ."
   },
   {
     "jp": "飲み放題",
     "rom": "nomihoudai",
-    "vn": "Uống thỏa thích (All-you-can-drink)",
-    "ex": "2時間飲み放題コースを注文する。",
-    "exVn": "Đặt gói uống thỏa thích trong 2 giờ."
+    "vn": "Gói uống thỏa thích không giới hạn",
+    "ex": "2時間制の飲み放題コースをご用意しております。",
+    "exVn": "Chúng tôi có gói uống thỏa thích trong thời gian 2 tiếng."
   },
   {
     "jp": "食べ放題",
     "rom": "tabehoudai",
-    "vn": "Ăn thỏa thích (All-you-can-eat Buffet)",
-    "ex": "焼肉の食べ放題に行く。",
-    "exVn": "Đi ăn thịt nướng buffet thỏa thích."
+    "vn": "Gói ăn buffet thỏa thích",
+    "ex": "週末は焼肉の食べ放題プランが大人気です。",
+    "exVn": "Cuối tuần thì gói buffet thịt nướng ăn thỏa thích rất đông khách."
   },
   {
     "jp": "貸し切り",
     "rom": "kashikiri",
-    "vn": "Bao trọn nhà hàng, Đặt riêng (Private event)",
-    "ex": "パーティーのために店を貸し切る。",
-    "exVn": "Bao trọn nhà hàng để tổ chức tiệc."
+    "vn": "Bao trọn quán / Thuê phòng riêng tiệc",
+    "ex": "今夜は会社の宴会で店内貸し切りとなっております。",
+    "exVn": "Tối nay quán được bao trọn để tổ chức tiệc liên hoan công ty."
+  },
+  {
+    "jp": "火加減",
+    "rom": "hikagen",
+    "vn": "Điều chỉnh mức lửa to/nhỏ",
+    "ex": "肉を柔らかく焼くには火加減の調節が肝心です。",
+    "exVn": "Để nướng thịt mềm ngon thì việc điều chỉnh mức lửa là cốt lõi."
+  },
+  {
+    "jp": "湯煎",
+    "rom": "yusen",
+    "vn": "Nấu hoặc hâm cách thủy",
+    "ex": "チョコレートを湯煎でゆっくり溶かします。",
+    "exVn": "Làm tan chảy sô-cô-la từ từ bằng phương pháp đun cách thủy."
+  },
+  {
+    "jp": "殺菌消毒",
+    "rom": "sakkinshoudoku",
+    "vn": "Tiệt trùng và sát khuẩn dụng cụ",
+    "ex": "調理台や包丁はアルコールで殺菌消毒する。",
+    "exVn": "Khử trùng sát khuẩn bàn bếp và dao bằng cồn y tế."
+  },
+  {
+    "jp": "食中毒",
+    "rom": "shokuchuudoku",
+    "vn": "Ngộ độc thực phẩm",
+    "ex": "夏場は食中毒予防に細心の注意を払う。",
+    "exVn": "Mùa hè cần hết sức chú ý đề phòng ngộ độc thực phẩm."
+  },
+  {
+    "jp": "アレルギー表示",
+    "rom": "arerugi-hyouji",
+    "vn": "Ghi chú thành phần gây dị ứng",
+    "ex": "メニューに特定原材料のアレルギー表示を記載する。",
+    "exVn": "Ghi chú thành phần dị ứng cụ thể trên thực đơn món ăn."
+  },
+  {
+    "jp": "お冷",
+    "rom": "ohiya",
+    "vn": "Nước lọc đá mời khách",
+    "ex": "お客様が席に着いたらすぐにお冷を出す。",
+    "exVn": "Khi khách vừa ngồi vào bàn, mang ngay nước đá ra mời."
+  },
+  {
+    "jp": "お絞り",
+    "rom": "oshibori",
+    "vn": "Khăn ướt lau tay đưa cho khách",
+    "ex": "温かいお絞りを両手でお渡ししてください。",
+    "exVn": "Hãy đưa khăn ướt ấm cho khách hàng bằng cả hai tay."
+  },
+  {
+    "jp": "伝票",
+    "rom": "dempyou",
+    "vn": "Phiếu gọi món / Phiếu thanh toán",
+    "ex": "料理を出したら伝票をテーブルの端に置く。",
+    "exVn": "Sau khi bưng món ra, đặt phiếu tính tiền ở góc bàn."
+  },
+  {
+    "jp": "お通し",
+    "rom": "otooshi",
+    "vn": "Món khai vị tính phí ở quán nhậu",
+    "ex": "居酒屋では席料としてお通しが出されます。",
+    "exVn": "Tại quán nhậu, món khai vị otooshi được phục vụ kèm tiền phụ thu chỗ."
+  },
+  {
+    "jp": "領収書",
+    "rom": "ryoushousho",
+    "vn": "Hóa đơn đỏ / Biên lai tài chính",
+    "ex": "会社名での領収書の発行をお願いします。",
+    "exVn": "Làm ơn xuất hóa đơn tài chính theo tên công ty giúp tôi."
+  },
+  {
+    "jp": "解凍",
+    "rom": "kaitou",
+    "vn": "Rã đông thực phẩm",
+    "ex": "冷凍肉を冷蔵庫に移してゆっくり解凍させる。",
+    "exVn": "Chuyển thịt đông lạnh sang ngăn mát để rã đông từ từ."
+  },
+  {
+    "jp": "廃棄処分",
+    "rom": "haikishobun",
+    "vn": "Tiêu hủy bỏ thực phẩm hỏng/thừa",
+    "ex": "期限切れの食材は速やかに廃棄処分にする。",
+    "exVn": "Nguyên liệu hết hạn sử dụng cần tiêu hủy bỏ ngay lập tức."
+  },
+  {
+    "jp": "満席",
+    "rom": "manseki",
+    "vn": "Hết bàn, kín chỗ",
+    "ex": "申し訳ございません、ただいま満席となっております。",
+    "exVn": "Thành thật xin lỗi quý khách, hiện tại nhà hàng đã kín hết bàn."
+  },
+  {
+    "jp": "相席",
+    "rom": "aiseki",
+    "vn": "Ngồi ghép bàn chung với khách khác",
+    "ex": "混雑時は相席をお願いする場合がございます。",
+    "exVn": "Lúc đông khách, chúng tôi có thể xin phép xếp ngồi chung bàn."
+  },
+  {
+    "jp": "お持ち帰り",
+    "rom": "omochikaeri",
+    "vn": "Mua đồ ăn mang về (Take-out)",
+    "ex": "この料理はお持ち帰りも可能です。",
+    "exVn": "Món ăn này có thể đóng gói mang về được."
+  },
+  {
+    "jp": "客単価",
+    "rom": "kyakutanka",
+    "vn": "Mức chi tiêu bình quân mỗi khách",
+    "ex": "ディナータイムの客単価を上げる工夫をする。",
+    "exVn": "Tìm giải pháp nâng cao mức chi tiêu bình quân mỗi khách vào buổi tối."
+  },
+  {
+    "jp": "回転率",
+    "rom": "kaitenritsu",
+    "vn": "Tốc độ xoay vòng bàn khách",
+    "ex": "ランチタイムは回転率を高めることが鍵だ。",
+    "exVn": "Vào giờ ăn trưa, tăng tốc độ quay vòng bàn là mấu chốt doanh thu."
   }
 ];
 
@@ -10450,177 +10969,261 @@ const VOCAB_ENGINEERING = [
   {
     "jp": "設計図",
     "rom": "sekkeizu",
-    "vn": "Bản vẽ thiết kế (Blueprint/Drawing)",
-    "ex": "設計図に従って正確に加工する。",
-    "exVn": "Gia công chính xác theo đúng bản vẽ thiết kế."
+    "vn": "Bản vẽ thiết kế kỹ thuật",
+    "ex": "設計図の寸法通りに部品を加工する。",
+    "exVn": "Gia công linh kiện theo đúng kích thước trên bản vẽ thiết kế."
   },
   {
     "jp": "作業現場",
     "rom": "sagyougemba",
-    "vn": "Công trường / Hiện trường làm việc (Worksite)",
-    "ex": "作業現場ではヘルメットを着用する。",
-    "exVn": "Đội mũ bảo hộ tại hiện trường làm việc."
+    "vn": "Hiện trường gia công / Nơi làm việc",
+    "ex": "作業現場の整理整頓を徹底しましょう。",
+    "exVn": "Hãy thực hiện triệt để việc sắp xếp ngăn nắp tại nơi làm việc."
   },
   {
     "jp": "定期点検",
     "rom": "teikitenken",
-    "vn": "Kiểm tra định kỳ (Periodic inspection)",
-    "ex": "機械の定期点検を実施する。",
-    "exVn": "Thực hiện kiểm tra định kỳ cho máy móc."
+    "vn": "Bảo dưỡng kiểm tra máy định kỳ",
+    "ex": "製造ラインの定期点検を毎月行っています。",
+    "exVn": "Hàng tháng đều thực hiện kiểm tra định kỳ dây chuyền sản xuất."
   },
   {
     "jp": "整備",
     "rom": "seibi",
-    "vn": "Bảo trì, Bảo dưỡng (Maintenance)",
-    "ex": "車のエンジンを整備する。",
-    "exVn": "Bảo dưỡng động cơ ô tô."
+    "vn": "Bảo trì, chỉnh đốn máy móc",
+    "ex": "機械の整備を怠ると大事故につながります。",
+    "exVn": "Nếu lơ là việc bảo trì máy móc sẽ dẫn đến tai nạn nghiêm trọng."
   },
   {
     "jp": "精密測定",
     "rom": "seimitsusokutei",
-    "vn": "Đo lường chính xác (Precision measurement)",
-    "ex": "ノギスで精密測定を行う。",
-    "exVn": "Tiến hành đo lường chính xác bằng thước kẹp."
+    "vn": "Đo lường cơ khí chính xác",
+    "ex": "ノギスやマイクロメーターで精密測定を行う。",
+    "exVn": "Thực hiện đo lường chính xác bằng thước cặp hoặc thước panme."
   },
   {
     "jp": "組み立て",
     "rom": "kumitate",
-    "vn": "Lắp ráp (Assembly)",
-    "ex": "部品を順番に組み立てる。",
-    "exVn": "Lắp ráp linh kiện theo đúng thứ tự."
+    "vn": "Lắp ráp linh kiện thành phẩm",
+    "ex": "マニュアルに従って順序良く組み立てる。",
+    "exVn": "Lắp ráp đúng trình tự theo sách hướng dẫn kỹ thuật."
   },
   {
     "jp": "安全帽",
     "rom": "anzenbou",
-    "vn": "Mũ bảo hộ lao động (Safety helmet)",
-    "ex": "現場に入る時は安全帽を被る。",
-    "exVn": "Đội mũ bảo hộ khi đi vào công trường."
+    "vn": "Mũ bảo hộ lao động",
+    "ex": "工場内では必ず安全帽を着用してください。",
+    "exVn": "Trong nhà xưởng bắt buộc phải đội mũ bảo hộ lao động."
   },
   {
     "jp": "許容誤差",
     "rom": "kyoyougosa",
-    "vn": "Dung sai cho phép (Tolerance)",
-    "ex": "許容誤差の範囲内に収める。",
-    "exVn": "Khống chế trong phạm vi dung sai cho phép."
+    "vn": "Dung sai cho phép",
+    "ex": "部品の仕上がりは許容誤差の範囲内です。",
+    "exVn": "Độ hoàn thiện của linh kiện nằm trong phạm vi dung sai cho phép."
   },
   {
     "jp": "溶接",
     "rom": "yousetsu",
-    "vn": "Hàn kim loại (Welding)",
-    "ex": "鉄板を溶接して接合する。",
-    "exVn": "Hàn nối các tấm sắt lại với nhau."
+    "vn": "Hàn kim loại",
+    "ex": "鉄骨を溶接して頑丈なフレームを作る。",
+    "exVn": "Hàn các thanh thép lại để tạo thành bộ khung vững chắc."
   },
   {
     "jp": "試運転",
     "rom": "shiunten",
-    "vn": "Chạy thử nghiệm (Trial run)",
-    "ex": "修理後に装置の試運転を行う。",
-    "exVn": "Tiến hành chạy thử thiết bị sau khi sửa chữa."
+    "vn": "Chạy thử nghiệm máy móc",
+    "ex": "新規導入した機械の試運転を開始する。",
+    "exVn": "Bắt đầu chạy thử nghiệm cỗ máy mới được nhập về xưởng."
   },
   {
     "jp": "電子回路",
     "rom": "denshikairo",
-    "vn": "Mạch điện tử (Electronic circuit)",
-    "ex": "基板に電子回路を設計する。",
-    "exVn": "Thiết kế mạch điện tử trên bo mạch."
+    "vn": "Mạch điện tử",
+    "ex": "電子回路基板のはんだ付け作業を行う。",
+    "exVn": "Thực hiện công việc hàn chân linh kiện trên bo mạch điện tử."
   },
   {
     "jp": "摩耗",
     "rom": "mamou",
-    "vn": "Mài mòn (Wear and tear)",
-    "ex": "タイヤの摩耗状態をチェックする。",
-    "exVn": "Kiểm tra tình trạng mài mòn của lốp xe."
+    "vn": "Hao mòn, mài mòn cơ học",
+    "ex": "ブレーキパッドの摩耗状態を点検する。",
+    "exVn": "Kiểm tra tình trạng mài mòn của má phanh."
   },
   {
     "jp": "構造物",
     "rom": "kouzoubutsu",
-    "vn": "Kết cấu, Cấu trúc (Structure)",
-    "ex": "大型構造物の耐震性を計算する。",
-    "exVn": "Tính toán khả năng chịu địa chấn của kết cấu lớn."
+    "vn": "Kết cấu công trình, bộ phận chịu lực",
+    "ex": "金属構造物の強度をコンピューターで解析する。",
+    "exVn": "Phân tích độ bền kết cấu kim loại bằng máy tính."
   },
   {
     "jp": "配管",
     "rom": "haikan",
-    "vn": "Đường ống, Lắp ống (Piping/Plumbing)",
-    "ex": "工場内の配管工事を完了する。",
-    "exVn": "Hoàn thành công trình đi đường ống trong nhà máy."
+    "vn": "Đường ống dẫn khí / nước",
+    "ex": "配管からのガス漏れがないか確認する。",
+    "exVn": "Kiểm tra xem có bị rò rỉ khí gas từ đường ống hay không."
   },
   {
     "jp": "配線",
     "rom": "haisen",
-    "vn": "Đi dây điện (Wiring)",
-    "ex": "制御盤の配線を行う。",
-    "exVn": "Thực hiện đi dây điện cho tủ điều khiển."
+    "vn": "Đường dây điện, nối dây mạch",
+    "ex": "制御盤内の配線を図面通りに結線する。",
+    "exVn": "Đấu nối dây điện trong tủ điều khiển theo đúng sơ đồ bản vẽ."
   },
   {
     "jp": "金型",
     "rom": "kanagata",
-    "vn": "Khuôn đúc, Khuôn kim loại (Mold/Die)",
-    "ex": "プレス機に金型を取り付ける。",
-    "exVn": "Lắp khuôn kim loại vào máy dập."
+    "vn": "Khuôn đúc kim loại / Khuôn ép nhựa",
+    "ex": "プレス機に金型を正確にセットする。",
+    "exVn": "Lắp đặt khuôn đúc vào máy dập một cách chuẩn xác."
   },
   {
     "jp": "切削加工",
     "rom": "sessakukakou",
-    "vn": "Gia công cắt gọt (Cutting/Machining)",
-    "ex": "旋盤で金属を切削加工する。",
-    "exVn": "Gia công cắt gọt kim loại bằng máy tiện."
+    "vn": "Gia công cắt gọt kim loại",
+    "ex": "旋盤を用いて金属棒の切削加工を行う。",
+    "exVn": "Dùng máy tiện để thực hiện gia công cắt gọt thanh kim loại."
   },
   {
     "jp": "研磨",
     "rom": "kemma",
-    "vn": "Mài bóng, Mài dũa (Polishing/Grinding)",
-    "ex": "表面を研磨して滑らかにする。",
-    "exVn": "Mài bóng bề mặt cho nhẵn mịn."
+    "vn": "Mài nhẵn, đánh bóng bề mặt",
+    "ex": "金属の表面を平滑に研磨して仕上げる。",
+    "exVn": "Mài nhẵn bóng bề mặt kim loại để hoàn thiện sản phẩm."
   },
   {
     "jp": "熱処理",
     "rom": "netsushori",
-    "vn": "Xử lý nhiệt (Heat treatment)",
-    "ex": "鋼材に熱処理を施して強度を上げる。",
-    "exVn": "Xử lý nhiệt thép để tăng độ cứng."
+    "vn": "Nhiệt luyện kim loại (Tôi thép)",
+    "ex": "熱処理を施して金属の硬度を高める。",
+    "exVn": "Nhiệt luyện tôi thép để nâng cao độ cứng của kim loại."
   },
   {
     "jp": "安全第一",
     "rom": "anzendaiichi",
-    "vn": "An toàn là trên hết (Safety first)",
-    "ex": "工場内では安全第一を徹底する。",
-    "exVn": "Triệt để tôn chỉ an toàn là trên hết trong nhà máy."
+    "vn": "An toàn là trên hết (Khẩu hiệu xưởng)",
+    "ex": "当工場では安全第一をスローガンに掲げています。",
+    "exVn": "Nhà xưởng chúng tôi luôn đặt tiêu chí An toàn là trên hết làm khẩu hiệu."
   },
   {
     "jp": "非常停止",
     "rom": "hijouteishi",
-    "vn": "Dừng khẩn cấp (Emergency stop)",
-    "ex": "危険を感じたら非常停止ボタンを押す。",
-    "exVn": "Nhấn nút dừng khẩn cấp nếu cảm thấy nguy hiểm."
+    "vn": "Dừng máy khẩn cấp (Emergency stop)",
+    "ex": "異常を感じたら直ちに非常停止ボタンを押すこと。",
+    "exVn": "Khi thấy điều bất thường, hãy ấn ngay nút dừng khẩn cấp."
   },
   {
     "jp": "保護具",
     "rom": "hogogu",
-    "vn": "Đồ bảo hộ lao động (PPE)",
-    "ex": "作業に応じて適切な保護具を着用する。",
-    "exVn": "Đeo trang thiết bị bảo hộ phù hợp tùy công việc."
+    "vn": "Đồ trang bị bảo hộ lao động",
+    "ex": "作業に応じた保護眼鏡や手袋を着用する。",
+    "exVn": "Đeo kính bảo hộ và găng tay phù hợp với từng công việc."
   },
   {
     "jp": "寸法",
     "rom": "sumpou",
-    "vn": "Kích thước (Dimension)",
-    "ex": "製品の寸法を計測する。",
-    "exVn": "Đo kích thước của sản phẩm."
+    "vn": "Kích thước đo đạc",
+    "ex": "製品の寸法が規格に適合しているか検査する。",
+    "exVn": "Kiểm tra xem kích thước sản phẩm có phù hợp quy chuẩn không."
   },
   {
     "jp": "歪み",
-    "rom": "hizumi",
-    "vn": "Biến dạng, Cong vênh (Distortion/Warp)",
-    "ex": "加熱による金属の歪みを防ぐ。",
-    "exVn": "Phòng ngừa sự biến dạng kim loại do gia nhiệt."
+    "rom": "yugami",
+    "vn": "Bị cong vênh, biến dạng cơ học",
+    "ex": "溶接の熱で金属板に歪みが生じる。",
+    "exVn": "Nhiệt độ của mối hàn làm cho tấm kim loại bị cong vênh biến dạng."
   },
   {
     "jp": "潤滑油",
     "rom": "junkatsuyu",
-    "vn": "Dầu nhờn bôi trơn (Lubricating oil)",
-    "ex": "ギアに潤滑油を補給する。",
-    "exVn": "Bổ sung dầu bôi trơn cho bánh răng."
+    "vn": "Dầu nhờn bôi trơn máy móc",
+    "ex": "回転軸に潤滑油を定期的に補給してください。",
+    "exVn": "Hãy định kỳ châm thêm dầu nhờn bôi trơn vào trục quay."
+  },
+  {
+    "jp": "旋盤",
+    "rom": "semban",
+    "vn": "Máy tiện kim loại",
+    "ex": "NC旋盤のプログラムを入力して自動加工を行う。",
+    "exVn": "Nhập chương trình vào máy tiện NC để gia công tự động."
+  },
+  {
+    "jp": "フライス盤",
+    "rom": "furaisuban",
+    "vn": "Máy phay cơ khí",
+    "ex": "フライス盤で金属ブロックの平面を削り出す。",
+    "exVn": "Dùng máy phay để bào phẳng bề mặt khối kim loại."
+  },
+  {
+    "jp": "バリ取り",
+    "rom": "baritori",
+    "vn": "Gọt bavia, mài via nhẵn cạnh",
+    "ex": "切削後の部品のエッジをバリ取りする。",
+    "exVn": "Mài sạch via ở các cạnh góc linh kiện sau khi cắt gọt."
+  },
+  {
+    "jp": "治具",
+    "rom": "jigu",
+    "vn": "Đồ gá gia công (Jig)",
+    "ex": "専用の治具にワークを固定して作業効率を上げる。",
+    "exVn": "Cố định phôi gia công vào đồ gá chuyên dụng để tăng năng suất."
+  },
+  {
+    "jp": "ノギス",
+    "rom": "nogisu",
+    "vn": "Thước cặp đo cơ khí chính xác",
+    "ex": "ノギスで外径と内径をミリ単位で測定する。",
+    "exVn": "Dùng thước cặp đo đường kính ngoài và trong chính xác từng milimét."
+  },
+  {
+    "jp": "公差",
+    "rom": "kousa",
+    "vn": "Dung sai kỹ thuật",
+    "ex": "図面に指定された幾何公差を厳守する。",
+    "exVn": "Tuân thủ nghiêm ngặt dung sai hình học được chỉ định trên bản vẽ."
+  },
+  {
+    "jp": "メッキ",
+    "rom": "mekki",
+    "vn": "Mạ xi kim loại chống gỉ",
+    "ex": "防錆のために亜鉛メッキ処理を施す。",
+    "exVn": "Tiến hành mạ kẽm để chống gỉ sét cho vật liệu."
+  },
+  {
+    "jp": "異音",
+    "rom": "ion",
+    "vn": "Âm thanh lạ, tiếng kêu máy bất thường",
+    "ex": "モーターから異音がするので直ちに点検してください。",
+    "exVn": "Động cơ phát ra tiếng kêu lạ, hãy kiểm tra ngay lập tức."
+  },
+  {
+    "jp": "始業点検",
+    "rom": "shigyoutenken",
+    "vn": "Kiểm tra máy trước khi bắt đầu ca làm",
+    "ex": "毎朝作業前に5分間の始業点検を実施する。",
+    "exVn": "Mỗi sáng trước khi vào việc đều thực hiện kiểm tra máy 5 phút."
+  },
+  {
+    "jp": "短絡",
+    "rom": "tanraku",
+    "vn": "Chập điện, ngắn mạch (Đoản mạch)",
+    "ex": "配線の接触不良による短絡事故を防ぐ。",
+    "exVn": "Đề phòng sự cố chập điện do tiếp xúc dây nối kém."
+  },
+  {
+    "jp": "不良品",
+    "rom": "furyouhin",
+    "vn": "Sản phẩm lỗi, hàng phế phẩm",
+    "ex": "不良品が発生した原因を特定して再発防止に努める。",
+    "exVn": "Xác định nguyên nhân gây ra hàng lỗi để ngăn ngừa tái diễn."
+  },
+  {
+    "jp": "歩留まり",
+    "rom": "budomari",
+    "vn": "Tỷ lệ sản phẩm đạt chuẩn (Yield rate)",
+    "ex": "工程改善により歩留まりが95%に向上した。",
+    "exVn": "Nhờ cải tiến quy trình mà tỷ lệ thành phẩm đạt chuẩn tăng lên 95%."
   }
 ];
 
@@ -10628,177 +11231,233 @@ const VOCAB_BUSINESS = [
   {
     "jp": "契約書",
     "rom": "keiyakusho",
-    "vn": "Hợp đồng văn bản (Contract)",
-    "ex": "契約書の内容を精査してから押印する。",
-    "exVn": "Rà soát kỹ nội dung hợp đồng trước khi đóng dấu."
+    "vn": "Hợp đồng kinh tế",
+    "ex": "契約書の内容を弁護士と精査する。",
+    "exVn": "Rà soát kỹ nội dung bản hợp đồng cùng luật sư."
   },
   {
     "jp": "商談",
     "rom": "shoudan",
-    "vn": "Đàm phán thương mại (Business meeting)",
-    "ex": "クライアントと重要な商談を行う。",
-    "exVn": "Tiến hành đàm phán thương mại quan trọng với khách hàng."
+    "vn": "Đàm phán thương mại, giao dịch kinh doanh",
+    "ex": "大手クライアントとの商談が成立した。",
+    "exVn": "Cuộc đàm phán giao dịch với khách hàng lớn đã thành công."
   },
   {
     "jp": "議事録",
     "rom": "gijiroku",
-    "vn": "Biên bản cuộc họp (Meeting minutes)",
-    "ex": "会議終了後、すぐに議事録を作成する。",
-    "exVn": "Sau cuộc họp lập tức soạn thảo biên bản cuộc họp."
+    "vn": "Biên bản cuộc họp",
+    "ex": "会議終了後、その日のうちに議事録を共有する。",
+    "exVn": "Sau khi cuộc họp kết thúc, chia sẻ biên bản ngay trong ngày."
   },
   {
     "jp": "見積書",
     "rom": "mitsumorisho",
-    "vn": "Bảng báo giá (Estimate/Quotation)",
-    "ex": "プロジェクトの見積書を発行する。",
-    "exVn": "Phát hành bảng báo giá cho dự án."
+    "vn": "Bảng báo giá dự toán",
+    "ex": "プロジェクトの概算見積書を作成して送付した。",
+    "exVn": "Đã lập và gửi bản báo giá ước tính cho dự án."
   },
   {
     "jp": "請求書",
     "rom": "seikyuusho",
-    "vn": "Hóa đơn thanh toán (Invoice)",
-    "ex": "月末までに請求書を送付してください。",
-    "exVn": "Xin hãy gửi hóa đơn thanh toán trước cuối tháng."
+    "vn": "Hóa đơn đòi tiền (Invoice)",
+    "ex": "月末締めで請求書を発行してください。",
+    "exVn": "Hãy xuất hóa đơn đòi tiền chốt vào cuối tháng."
   },
   {
     "jp": "納品",
     "rom": "nouhin",
-    "vn": "Giao hàng, Nộp sản phẩm (Delivery)",
-    "ex": "期日通りに商品を納品する。",
-    "exVn": "Giao sản phẩm đúng hạn định."
+    "vn": "Giao hàng, bàn giao sản phẩm",
+    "ex": "予定通りに来週の金曜日に商品を納品します。",
+    "exVn": "Sẽ giao hàng đúng tiến độ vào thứ Sáu tuần tới."
   },
   {
     "jp": "取引先",
     "rom": "torihikisaki",
-    "vn": "Đối tác kinh doanh, Khách hàng (Client)",
-    "ex": "長年のお取引先をご案内する。",
-    "exVn": "Hướng dẫn đối tác thân thiết nhiều năm."
+    "vn": "Đối tác làm ăn, bạn hàng",
+    "ex": "長年お付き合いのある信頼できる取引先です。",
+    "exVn": "Đây là đối tác làm ăn đáng tin cậy đã hợp tác nhiều năm."
   },
   {
     "jp": "競合他社",
     "rom": "kyougoutasha",
-    "vn": "Công ty đối thủ cạnh tranh (Competitors)",
-    "ex": "競合他社の動向を分析する。",
-    "exVn": "Phân tích động thái của các công ty đối thủ."
+    "vn": "Công ty đối thủ cạnh tranh",
+    "ex": "競合他社の新製品の動向をリサーチする。",
+    "exVn": "Nghiên cứu xu hướng sản phẩm mới của các công ty đối thủ."
   },
   {
     "jp": "損益分岐点",
-    "rom": "sone kibunkiten",
-    "vn": "Điểm hòa vốn (Break-even point)",
-    "ex": "損益分岐点を超える売上を目指す。",
-    "exVn": "Hướng tới doanh thu vượt qua điểm hòa vốn."
+    "rom": "sonekibunkiten",
+    "vn": "Điểm hòa vốn trong kinh doanh",
+    "ex": "今年度中に損益分岐点を超える見込みです。",
+    "exVn": "Dự kiến trong năm tài chính này sẽ vượt qua điểm hòa vốn."
   },
   {
     "jp": "資金繰り",
     "rom": "shikinguri",
-    "vn": "Quản lý dòng tiền, Đảo vốn (Cashflow management)",
-    "ex": "中小企業の資金繰りを支援する。",
-    "exVn": "Hỗ trợ quản lý dòng tiền cho doanh nghiệp vừa và nhỏ."
+    "vn": "Quản lý dòng tiền, xoay vòng vốn",
+    "ex": "無理のない資金繰り計画を立てることが重要だ。",
+    "exVn": "Lập kế hoạch xoay vòng dòng tiền hợp lý là điều then chốt."
   },
   {
     "jp": "部署",
     "rom": "busho",
-    "vn": "Phòng ban (Department)",
-    "ex": "営業部署に配属された。",
-    "exVn": "Được phân công vào phòng kinh doanh."
+    "vn": "Phòng ban trong công ty",
+    "ex": "来月から営業第一部署へ異動となります。",
+    "exVn": "Từ tháng sau tôi sẽ chuyển công tác sang phòng kinh doanh số 1."
   },
   {
     "jp": "役職",
     "rom": "yakushoku",
-    "vn": "Chức vụ, Vị trí (Position/Title)",
-    "ex": "課長という役職に就く。",
-    "exVn": "Đảm nhận chức vụ Trưởng phòng (Khóa trưởng)."
+    "vn": "Chức vụ, vị trí lãnh đạo",
+    "ex": "課長や部長などの管理役職に就く。",
+    "exVn": "Đảm nhận các chức vụ quản lý như trưởng nhóm hay trưởng phòng."
   },
   {
     "jp": "出張",
-    "rom": "shutchou",
-    "vn": "Đi công tác (Business trip)",
-    "ex": "来週から大阪へ出張します。",
-    "exVn": "Từ tuần sau tôi đi công tác Osaka."
+    "rom": "shucchou",
+    "vn": "Đi công tác xa",
+    "ex": "来週大阪支社へ2泊3日の出張に行きます。",
+    "exVn": "Tuần sau tôi đi công tác chi nhánh Osaka 3 ngày 2 đêm."
   },
   {
     "jp": "組織図",
     "rom": "soshikizu",
-    "vn": "Sơ đồ tổ chức công ty (Organizational chart)",
-    "ex": "会社の組織図を確認する。",
-    "exVn": "Xem sơ đồ tổ chức của công ty."
+    "vn": "Sơ đồ cơ cấu tổ chức công ty",
+    "ex": "会社の組織図で各部門の役割を確認する。",
+    "exVn": "Xem sơ đồ tổ chức công ty để hiểu rõ vai trò của từng bộ phận."
   },
   {
     "jp": "名刺交換",
     "rom": "meishikoukan",
-    "vn": "Trao đổi danh thiếp (Business card exchange)",
-    "ex": "初対面の相手と名刺交換をする。",
-    "exVn": "Trao đổi danh thiếp với đối tác mới gặp lần đầu."
+    "vn": "Trao đổi danh thiếp (Văn hóa Nhật)",
+    "ex": "初対面の相手とは両手で丁寧に名刺交換を行う。",
+    "exVn": "Lần đầu gặp gỡ đối tác, trao đổi danh thiếp lịch sự bằng cả hai tay."
   },
   {
     "jp": "稟議書",
     "rom": "ringisho",
-    "vn": "Tờ trình duyệt kinh phí / Dự án (Approval document)",
-    "ex": "新しい備品購入の稟議書を提出する。",
-    "exVn": "Nộp tờ trình phê duyệt mua sắm trang thiết bị mới."
+    "vn": "Đơn xin phê duyệt kinh phí nội bộ",
+    "ex": "高額な機器の購入には稟議書の決裁が必要です。",
+    "exVn": "Mua sắm thiết bị giá trị cao cần được phê duyệt đơn xin kinh phí."
   },
   {
     "jp": "稟議",
     "rom": "ringi",
-    "vn": "Phê duyệt cấp trên (Internal decision flow)",
-    "ex": "稟議を通して承認を得る。",
-    "exVn": "Thông qua quy trình phê duyệt để lấy sự đồng ý."
+    "vn": "Quy trình xin ý kiến phê duyệt nội bộ",
+    "ex": "社内稟議を通して予算を確保しました。",
+    "exVn": "Đã thông qua quy trình phê duyệt nội bộ để chốt ngân sách."
   },
   {
     "jp": "就業規則",
     "rom": "shuugyoukisoku",
-    "vn": "Nội quy lao động (Work regulations)",
-    "ex": "就業規則を遵守して働く。",
-    "exVn": "Làm việc tuân thủ đúng nội quy lao động."
+    "vn": "Nội quy lao động của công ty",
+    "ex": "入社時に就業規則の確認と同意が求められます。",
+    "exVn": "Khi vào công ty, nhân viên được yêu cầu đọc và đồng ý nội quy lao động."
   },
   {
     "jp": "残業手当",
     "rom": "zangyouteate",
-    "vn": "Phụ cấp làm thêm giờ (Overtime pay)",
-    "ex": "残業手当が支給される。",
-    "exVn": "Được chi trả phụ cấp làm thêm giờ."
+    "vn": "Tiền phụ cấp làm thêm ngoài giờ",
+    "ex": "所定労働時間を超えた分は残業手当が支給される。",
+    "exVn": "Khoảng thời gian vượt quá giờ làm quy định sẽ được chi trả trợ cấp tăng ca."
   },
   {
     "jp": "有給休暇",
     "rom": "yuukyuukyuuka",
-    "vn": "Nghỉ phép có hưởng lương (Paid leave)",
-    "ex": "有給休暇を取得して旅行に行く。",
-    "exVn": "Xin nghỉ phép có lương để đi du lịch."
+    "vn": "Ngày nghỉ phép có lương",
+    "ex": "有給休暇を取得して家族旅行に出かける。",
+    "exVn": "Xin nghỉ phép có lương để cùng gia đình đi du lịch."
   },
   {
     "jp": "直行直帰",
     "rom": "chokkouchokki",
-    "vn": "Đi thẳng đến đối tác và về thẳng nhà",
-    "ex": "今日は外出先から直行直帰します。",
-    "exVn": "Hôm nay tôi sẽ đi thẳng đến chỗ đối tác và về nhà luôn."
+    "vn": "Đi thẳng tới nơi đối tác và về thẳng nhà",
+    "ex": "午後は取引先へ直行直帰の予定です。",
+    "exVn": "Buổi chiều tôi dự định đi thẳng tới đối tác và về thẳng nhà sau đó."
   },
   {
     "jp": "引き継ぎ",
     "rom": "hikitsugi",
-    "vn": "Bàn giao công việc (Handover)",
-    "ex": "後任者に業務の引き継ぎを行う。",
-    "exVn": "Bàn giao công việc cho người kế nhiệm."
+    "vn": "Bàn giao công việc cho người kế nhiệm",
+    "ex": "退職前に後任者へ業務の引き継ぎを完了させる。",
+    "exVn": "Hoàn tất việc bàn giao công việc cho người kế nhiệm trước khi nghỉ việc."
   },
   {
     "jp": "人脈",
-    "rom": "jimmyaku",
-    "vn": "Mạng lưới quan hệ (Personal network)",
-    "ex": "ビジネスの人脈を広げる。",
-    "exVn": "Mở rộng mạng lưới quan hệ kinh doanh."
+    "rom": "jimmaku",
+    "vn": "Mối quan hệ ngoại giao / Mạng lưới quan hệ",
+    "ex": "交流会に参加して業界の人脈を広げる。",
+    "exVn": "Tham gia các buổi giao lưu để mở rộng mạng lưới quan hệ trong ngành."
   },
   {
     "jp": "業績",
     "rom": "gyouseki",
-    "vn": "Kết quả kinh doanh, Thành tích (Performance)",
-    "ex": "今期の業績が大幅に向上した。",
-    "exVn": "Thành tích kinh doanh kỳ này tăng trưởng vượt bậc."
+    "vn": "Kết quả kinh doanh, thành tích công ty",
+    "ex": "円安の影響で今期の業績が大幅に改善した。",
+    "exVn": "Nhờ tác động của đồng Yên giảm giá, kết quả kinh doanh kỳ này cải thiện lớn."
   },
   {
     "jp": "資本金",
     "rom": "shihonkin",
-    "vn": "Vốn điều lệ (Capital)",
-    "ex": "資本金1000万円で thành lập 会社。",
-    "exVn": "Thành lập công ty với vốn điều lệ 10 triệu yên."
+    "vn": "Vốn điều lệ của công ty",
+    "ex": "資本金1000万円で新規法人を設立しました。",
+    "exVn": "Thành lập pháp nhân mới với số vốn điều lệ là 10 triệu Yên."
+  },
+  {
+    "jp": "相見積もり",
+    "rom": "aimitsumori",
+    "vn": "So sánh báo giá từ nhiều bên",
+    "ex": "コスト削減のため3社から相見積もりを取る。",
+    "exVn": "Lấy báo giá từ 3 công ty để so sánh nhằm cắt giảm chi phí."
+  },
+  {
+    "jp": "受注",
+    "rom": "juchuu",
+    "vn": "Nhận đơn đặt hàng từ khách",
+    "ex": "大型システムの開発案件を受注しました。",
+    "exVn": "Chúng tôi đã nhận được hợp đồng dự án phát triển hệ thống quy mô lớn."
+  },
+  {
+    "jp": "発注",
+    "rom": "hacchuu",
+    "vn": "Đặt hàng đối tác / Đặt mua linh kiện",
+    "ex": "部品の在庫が少なくなったので追加発注する。",
+    "exVn": "Lượng linh kiện tồn kho đã giảm nên tiến hành đặt hàng thêm."
+  },
+  {
+    "jp": "売上高",
+    "rom": "uriagedaka",
+    "vn": "Tổng doanh thu bán hàng",
+    "ex": "今年度の年間売上高は目標の10億円を突破した。",
+    "exVn": "Tổng doanh thu năm nay đã vượt mục tiêu 1 tỷ Yên."
+  },
+  {
+    "jp": "純利益",
+    "rom": "junrieki",
+    "vn": "Lợi nhuận ròng sau thuế",
+    "ex": "売上だけでなく純利益率にも着目する。",
+    "exVn": "Không chỉ nhìn vào doanh số mà còn phải chú trọng tỷ suất lợi nhuận ròng."
+  },
+  {
+    "jp": "報連相",
+    "rom": "hourensou",
+    "vn": "Quy tắc Báo cáo - Liên lạc - Thảo luận",
+    "ex": "トラブルを防ぐため毎日の報連相を徹底する。",
+    "exVn": "Thực hiện triệt để nguyên tắc Horenso mỗi ngày để phòng tránh sự cố."
+  },
+  {
+    "jp": "根回し",
+    "rom": "nemawashi",
+    "vn": "Vận động hành lang thống nhất trước cuộc họp",
+    "ex": "提案を通すために役員へ事前の根回しを行う。",
+    "exVn": "Thực hiện vận động hành lang trước với ban giám đốc để đề xuất được thông qua."
+  },
+  {
+    "jp": "定例会",
+    "rom": "teireikai",
+    "vn": "Cuộc họp định kỳ hàng tuần/tháng",
+    "ex": "毎週月曜日の朝に部署の定例会を開きます。",
+    "exVn": "Mỗi sáng thứ Hai đều tổ chức cuộc họp định kỳ của phòng ban."
   }
 ];
 
@@ -10806,142 +11465,498 @@ const VOCAB_MEDICAL = [
   {
     "jp": "診察",
     "rom": "shinsatsu",
-    "vn": "Khám bệnh (Medical examination)",
-    "ex": "医師の診察を受ける。",
-    "exVn": "Đi khám bệnh với bác sĩ."
+    "vn": "Thăm khám bệnh của bác sĩ",
+    "ex": "医師による診察を受けて薬を処方してもらう。",
+    "exVn": "Bác sĩ thăm khám bệnh và kê đơn thuốc."
   },
   {
     "jp": "処方箋",
     "rom": "shohousen",
-    "vn": "Đơn thuốc (Prescription)",
-    "ex": "薬局で処方箋を提出して薬をもらう。",
-    "exVn": "Nộp đơn thuốc tại nhà thuốc để lấy thuốc."
+    "vn": "Đơn thuốc do bác sĩ kê",
+    "ex": "処方箋を持って調剤薬局へ行きます。",
+    "exVn": "Cầm đơn thuốc tới hiệu thuốc bốc thuốc."
   },
   {
     "jp": "自覚症状",
     "rom": "jikakushoujou",
-    "vn": "Triệu chứng tự cảm nhận (Subjective symptoms)",
-    "ex": "特に目立った自覚症状はない。",
-    "exVn": "Không có triệu chứng tự cảm nhận nào rõ rệt."
+    "vn": "Triệu chứng bệnh mà người bệnh tự cảm nhận",
+    "ex": "熱や倦怠感などの自覚症状はありますか？",
+    "exVn": "Bác có cảm nhận thấy triệu chứng gì như sốt hay mệt mỏi không?"
   },
   {
     "jp": "患者",
     "rom": "kanja",
-    "vn": "Bệnh nhân (Patient)",
-    "ex": "患者の気持ちに寄り添った看護をする。",
-    "exVn": "Điều dưỡng thấu hiểu tâm lý bệnh nhân."
+    "vn": "Bệnh nhân",
+    "ex": "患者様のプライバシーに十分配慮してください。",
+    "exVn": "Hãy hết sức tôn trọng quyền riêng tư của bệnh nhân."
   },
   {
     "jp": "バイタルサイン",
     "rom": "baitarusain",
-    "vn": "Dấu hiệu sinh tồn (Vital signs)",
-    "ex": "毎朝バイタルサインを測定する。",
-    "exVn": "Đo các dấu hiệu sinh tồn mỗi sáng."
+    "vn": "Dấu hiệu sinh tồn (Mạch, huyết áp, nhiệt độ)",
+    "ex": "毎朝バイタルサインを測定して記録する。",
+    "exVn": "Đo và ghi chép lại các chỉ số sinh tồn vào mỗi buổi sáng."
   },
   {
     "jp": "体温測定",
     "rom": "taionsokutei",
-    "vn": "Đo thân nhiệt (Temperature check)",
-    "ex": "体温測定をして発熱がないか確認する。",
-    "exVn": "Đo thân nhiệt để kiểm tra xem có bị sốt không."
+    "vn": "Đo thân nhiệt",
+    "ex": "非接触型の体温計で体温測定を行う。",
+    "exVn": "Đo thân nhiệt bằng nhiệt kế điện tử không tiếp xúc."
   },
   {
     "jp": "血圧計",
     "rom": "ketsuatsukei",
-    "vn": "Máy đo huyết áp (Blood pressure monitor)",
-    "ex": "血圧計で上と下の血圧を測る。",
-    "exVn": "Đo huyết áp tâm thu và tâm trương bằng máy đo."
+    "vn": "Máy đo huyết áp",
+    "ex": "腕に血圧計のカフを巻いて測定します。",
+    "exVn": "Quấn bao đo của máy huyết áp vào bắp tay để bắt đầu đo."
   },
   {
     "jp": "介護福祉士",
     "rom": "kaigofukushishi",
-    "vn": "Chuyên viên điều dưỡng (Certified care worker)",
-    "ex": "介護福祉士の国家資格を取得する。",
-    "exVn": "Lấy chứng chỉ quốc gia chuyên viên điều dưỡng."
+    "vn": "Nhân viên điều dưỡng / Hộ lý chăm sóc chứng chỉ quốc gia",
+    "ex": "国家資格である介護福祉士の試験に合格した。",
+    "exVn": "Đã thi đỗ chứng chỉ quốc gia nhân viên chăm sóc hộ lý Kaigo."
   },
   {
     "jp": "消毒液",
     "rom": "shoudokueki",
-    "vn": "Dung dịch sát trùng, Dung dịch cồn (Antiseptic/Sanitizer)",
-    "ex": "手指を消毒液できれいに消毒する。",
-    "exVn": "Rửa sạch tay bằng dung dịch sát trùng."
+    "vn": "Dung dịch khử trùng sát khuẩn",
+    "ex": "入室前に手指を消毒液でしっかり消毒する。",
+    "exVn": "Sát khuẩn tay kỹ lưỡng bằng dung dịch sát trùng trước khi vào phòng."
   },
   {
     "jp": "応急手当",
     "rom": "oukyuuteate",
-    "vn": "Sơ cứu ban đầu (First aid)",
-    "ex": "けが人に迅速な応急手当を施す。",
-    "exVn": "Sơ cứu ban đầu nhanh chóng cho người bị thương."
+    "vn": "Sơ cứu ban đầu khẩn cấp",
+    "ex": "怪我人に対して速やかに応急手当を施す。",
+    "exVn": "Nhanh chóng thực hiện sơ cứu ban đầu cho người bị thương."
   },
   {
     "jp": "カルテ",
     "rom": "karute",
-    "vn": "Hồ sơ bệnh án (Medical record)",
-    "ex": "患者のカルテを確認する。",
-    "exVn": "Xem hồ sơ bệnh án của bệnh nhân."
+    "vn": "Bệnh án điện tử / Hồ sơ y bạ",
+    "ex": "電子カルテに患者の経過を詳細に記入する。",
+    "exVn": "Ghi chép chi tiết diễn biến của bệnh nhân vào hồ sơ bệnh án điện tử."
   },
   {
     "jp": "点滴",
     "rom": "tenteki",
-    "vn": "Truyền dịch (IV drip)",
-    "ex": "脱水症状を防ぐために点滴を行う。",
-    "exVn": "Truyền dịch để phòng chống mất nước."
+    "vn": "Truyền dịch tĩnh mạch (Truyền nước)",
+    "ex": "脱水症状を防ぐために点滴を投与する。",
+    "exVn": "Truyền dịch tĩnh mạch để phòng ngừa tình trạng mất nước."
   },
   {
     "jp": "予防接種",
-    "rom": "yoboussesshu",
-    "vn": "Tiêm chủng phòng bệnh (Vaccination)",
+    "rom": "yobousesshu",
+    "vn": "Tiêm chủng vắc-xin phòng bệnh",
     "ex": "インフルエンザの予防接種を受ける。",
-    "exVn": "Tiêm vaccine phòng bệnh cúm."
+    "exVn": "Tiêm vắc-xin phòng ngừa bệnh cúm mùa."
   },
   {
     "jp": "副作用",
-    "rom": "hukusagyou",
-    "vn": "Tác dụng phụ của thuốc (Side effect)",
-    "ex": "薬の副作用で眠くなることがある。",
-    "exVn": "Có thể bị buồn ngủ do tác dụng phụ của thuốc."
+    "rom": "fukusayou",
+    "vn": "Tác dụng phụ của thuốc",
+    "ex": "この薬には眠気の副作用が出る場合があります。",
+    "exVn": "Loại thuốc này có thể gây ra tác dụng phụ là buồn ngủ."
   },
   {
     "jp": "問診票",
     "rom": "monshimpyou",
-    "vn": "Phiếu khai báo y tế (Medical questionnaire)",
-    "ex": "受付で問診票に記入する。",
-    "exVn": "Điền thông tin vào phiếu khai báo y tế tại lễ tân."
+    "vn": "Phiếu khai tình trạng bệnh lý khi đến khám",
+    "ex": "初診の受付で問診票に記入をお願いします。",
+    "exVn": "Xin vui lòng điền vào phiếu khai bệnh tại quầy tiếp đón lần đầu."
   },
   {
     "jp": "面会時間",
-    "rom": "menkaijikan",
-    "vn": "Giờ thăm bệnh (Visiting hours)",
-    "ex": "病院の面会時間を守る。",
-    "exVn": "Tuân thủ giờ thăm bệnh của bệnh viện."
+    "rom": "meinkaijikan",
+    "vn": "Giờ thăm nuôi người bệnh",
+    "ex": "病棟の面会時間は午後2時から午後8時までです。",
+    "exVn": "Giờ thăm nuôi bệnh nhân tại khoa là từ 2 giờ chiều đến 8 giờ tối."
   },
   {
     "jp": "車椅子",
     "rom": "kurumaisu",
-    "vn": "Xe lăn (Wheelchair)",
-    "ex": "車椅子で患者を移動させる。",
-    "exVn": "Di chuyển bệnh nhân bằng xe lăn."
+    "vn": "Xe lăn cho người bệnh / cụ già",
+    "ex": "段差がある場所では車椅子を後ろ向きに下ろす。",
+    "exVn": "Ở những nơi có bậc thềm, lùi xe lăn ra sau để hạ xuống an toàn."
   },
   {
     "jp": "褥瘡",
     "rom": "jokusou",
-    "vn": "Vết lở loét do nằm lâu (Bedsore)",
-    "ex": "体位変換をして褥瘡を予防する。",
-    "exVn": "Xoay người thường xuyên để phòng vết lở loét."
+    "vn": "Vết loét tì đè do nằm liệt giường lâu ngày",
+    "ex": "褥瘡を防ぐため2時間おきに体位変換を行う。",
+    "exVn": "Cứ 2 tiếng lăn trở người bệnh một lần để phòng chống loét tì đè."
   },
   {
     "jp": "服薬指導",
-    "rom": "hukuyakushidou",
-    "vn": "Hướng dẫn uống thuốc (Medication instruction)",
-    "ex": "薬剤師から服薬指導を受ける。",
-    "exVn": "Nhận hướng dẫn uống thuốc từ dược sĩ."
+    "rom": "fukuyakushidou",
+    "vn": "Hướng dẫn uống thuốc đúng liều lượng",
+    "ex": "薬剤師から食後の服薬指導を受ける。",
+    "exVn": "Được dược sĩ hướng dẫn cách uống thuốc đúng liều lượng sau bữa ăn."
   },
   {
     "jp": "リハビリ",
     "rom": "rihabiri",
-    "vn": "Phục hồi chức năng (Rehabilitation)",
-    "ex": "手術後にリハビリに励む。",
-    "exVn": "Nỗ lực tập phục hồi chức năng sau phẫu thuật."
+    "vn": "Vật lý trị liệu phục hồi chức năng",
+    "ex": "歩行訓練のリハビリを毎日根気よく続ける。",
+    "exVn": "Kiên trì tập bài tập phục hồi chức năng đi lại mỗi ngày."
+  },
+  {
+    "jp": "移乗",
+    "rom": "ijou",
+    "vn": "Hỗ trợ di chuyển (Từ giường sang xe lăn)",
+    "ex": "ベッドから車椅子への安全な移乗介助を行う。",
+    "exVn": "Hỗ trợ di chuyển an toàn cho cụ từ giường sang xe lăn."
+  },
+  {
+    "jp": "排泄介助",
+    "rom": "haisetsukaijo",
+    "vn": "Hỗ trợ bài tiết / đi vệ sinh",
+    "ex": "利用者の尊厳を守りながら排泄介助を行う。",
+    "exVn": "Hỗ trợ đi vệ sinh đồng thời giữ gìn lòng tự trọng của người già."
+  },
+  {
+    "jp": "入浴介助",
+    "rom": "nyuuyokukaijo",
+    "vn": "Hỗ trợ tắm rửa an toàn cho người già",
+    "ex": "お湯の温度を確認してから入浴介助を始める。",
+    "exVn": "Kiểm tra nhiệt độ nước ấm trước khi bắt đầu hỗ trợ cụ tắm."
+  },
+  {
+    "jp": "食事介助",
+    "rom": "shokujikaijo",
+    "vn": "Hỗ trợ bón cơm, ăn uống",
+    "ex": "誤嚥を防ぐため姿勢を正して食事介助をする。",
+    "exVn": "Chỉnh tư thế ngồi thẳng trước khi bón cơm để tránh bị sặc."
+  },
+  {
+    "jp": "口腔ケア",
+    "rom": "koukuukya",
+    "vn": "Vệ sinh răng miệng cho người bệnh",
+    "ex": "毎食後に口腔ケアを行い肺炎を予防する。",
+    "exVn": "Vệ sinh khoang miệng sau mỗi bữa ăn để phòng ngừa viêm phổi."
+  },
+  {
+    "jp": "体位変換",
+    "rom": "taiihenkan",
+    "vn": "Lăn trở mình, đổi tư thế nằm",
+    "ex": "夜間も定期的に体位変換を実施してください。",
+    "exVn": "Ban đêm cũng cần định kỳ lăn trở mình đổi tư thế cho bệnh nhân."
+  },
+  {
+    "jp": "見守り",
+    "rom": "mimamori",
+    "vn": "Theo dõi, để mắt trông nom an toàn",
+    "ex": "歩行が不安定な利用者を見守り介助する。",
+    "exVn": "Đi bên cạnh để mắt trông chừng người cao tuổi đi lại chưa vững."
+  },
+  {
+    "jp": "転倒防止",
+    "rom": "tentouboushi",
+    "vn": "Phòng chống trượt ngã, té cầu thang",
+    "ex": "床の段差をなくし転倒防止に努める。",
+    "exVn": "San phẳng các gờ thềm trên sàn để nỗ lực chống té ngã."
+  },
+  {
+    "jp": "認知症",
+    "rom": "ninchishou",
+    "vn": "Hội chứng sa sút trí tuệ (Alzheimer)",
+    "ex": "認知症の方の気持ちに寄り添った対応を心がける。",
+    "exVn": "Luôn thấu hiểu và lắng nghe tâm tư của người bị sa sút trí tuệ."
+  },
+  {
+    "jp": "誤嚥",
+    "rom": "goen",
+    "vn": "Nuốt sặc thức ăn vào đường thở",
+    "ex": "誤嚥を防ぐためスープにとろみをつける。",
+    "exVn": "Pha bột làm sánh súp để chống sặc vào đường thở cho cụ."
+  },
+  {
+    "jp": "とろみ",
+    "rom": "toromi",
+    "vn": "Độ sánh đặc chống sặc trong đồ ăn",
+    "ex": "お茶にとろみ剤を加えて飲みやすくする。",
+    "exVn": "Cho chất làm đặc vào trà để cụ dễ uống mà không bị sặc."
+  },
+  {
+    "jp": "ナースコール",
+    "rom": "na-suko-ru",
+    "vn": "Nút bấm chuông gọi y tá đầu giường",
+    "ex": "何かあったら遠慮なくナースコールを押してください。",
+    "exVn": "Nếu có vấn đề gì, bác cứ tự nhiên bấm chuông gọi y tá đầu giường."
+  }
+];
+
+const VOCAB_CONSTRUCTION = [
+  {
+    "jp": "足場",
+    "rom": "ashiba",
+    "vn": "Giàn giáo thi công công trình",
+    "ex": "強風の日は足場の上での作業に注意が必要だ。",
+    "exVn": "Vào ngày gió lớn cần đặc biệt chú ý khi thao tác trên giàn giáo."
+  },
+  {
+    "jp": "躯体",
+    "rom": "kutai",
+    "vn": "Khung kết cấu chịu lực (Cột, dầm, sàn)",
+    "ex": "建物の躯体工事が順調に進んでいます。",
+    "exVn": "Công tác thi công kết cấu khung chịu lực đang tiến triển thuận lợi."
+  },
+  {
+    "jp": "鉄筋",
+    "rom": "tekkin",
+    "vn": "Thép cốt bê tông (Cốt thép)",
+    "ex": "コンクリートを流し込む前に鉄筋を配筋する。",
+    "exVn": "Bố trí đan buộc cốt thép trước khi đổ bê tông vào khuôn."
+  },
+  {
+    "jp": "型枠",
+    "rom": "katawaku",
+    "vn": "Cốp pha, ván khuôn đổ bê tông",
+    "ex": "型枠大工が正確にベニヤ板を組み立てる。",
+    "exVn": "Thợ cốp pha lắp ráp các tấm ván khuôn một cách chuẩn xác."
+  },
+  {
+    "jp": "生コン",
+    "rom": "namakon",
+    "vn": "Bê tông tươi (Ready-mixed concrete)",
+    "ex": "生コン車が現場に到着したら速やかに打設する。",
+    "exVn": "Khi xe bồn chở bê tông tươi đến hiện trường thì đổ ngay lập tức."
+  },
+  {
+    "jp": "打設",
+    "rom": "dasetsu",
+    "vn": "Đổ bê tông vào khuôn",
+    "ex": "バイブレーターで空気を抜きながらコンクリートを打設する。",
+    "exVn": "Đổ bê tông kết hợp dùng máy đầm dùi rung để đẩy bọt khí ra."
+  },
+  {
+    "jp": "養生",
+    "rom": "youjou",
+    "vn": "Bảo dưỡng bê tông / Che chắn bảo vệ vật liệu",
+    "ex": "コンクリート打設後は十分な散水養生を行う。",
+    "exVn": "Sau khi đổ bê tông cần tưới nước dưỡng hộ đầy đủ."
+  },
+  {
+    "jp": "基礎",
+    "rom": "kiso",
+    "vn": "Nền móng công trình",
+    "ex": "建物の安定性は強固な基礎工事にかかっている。",
+    "exVn": "Sự kiên cố của tòa nhà phụ thuộc hoàn toàn vào phần móng vững chắc."
+  },
+  {
+    "jp": "測量",
+    "rom": "sokuryou",
+    "vn": "Trắc địa, đo đạc địa hình",
+    "ex": "トータルステーションを用いて現場の測量を行う。",
+    "exVn": "Dùng máy toàn đạc điện tử để đo đạc trắc địa công trường."
+  },
+  {
+    "jp": "墨出し",
+    "rom": "sumidashi",
+    "vn": "Bật mực định vị ranh giới xây dựng",
+    "ex": "床面に基準線を引くため正確に墨出しをする。",
+    "exVn": "Bật mực chuẩn xác để kẻ các đường tim mốc chuẩn trên mặt sàn."
+  },
+  {
+    "jp": "施工管理",
+    "rom": "sekoukanri",
+    "vn": "Quản lý giám sát thi công",
+    "ex": "施工管理者は工程・品質・安全を統括する。",
+    "exVn": "Kỹ sư giám sát thi công bao quát toàn bộ tiến độ, chất lượng và an toàn."
+  },
+  {
+    "jp": "工期",
+    "rom": "kouki",
+    "vn": "Thời hạn thi công toàn bộ dự án",
+    "ex": "天候不良が続いたため工期の延長を申請した。",
+    "exVn": "Do thời tiết xấu kéo dài nên đã làm đơn xin gia hạn thời gian thi công."
+  },
+  {
+    "jp": "安全帯",
+    "rom": "anzentai",
+    "vn": "Dây an toàn bảo hộ trên cao (Harness)",
+    "ex": "高所作業ではフルハーネス型安全帯を必ず着用する。",
+    "exVn": "Làm việc trên cao bắt buộc phải đeo dây an toàn toàn thân."
+  },
+  {
+    "jp": "親綱",
+    "rom": "oyazuna",
+    "vn": "Dây cứu sinh neo móc an toàn",
+    "ex": "足場のない場所では親綱にフックを掛けて移動する。",
+    "exVn": "Ở những vị trí không có giàn giáo thì móc chốt vào dây cứu sinh khi di chuyển."
+  },
+  {
+    "jp": "開口部",
+    "rom": "kaikoubu",
+    "vn": "Lỗ mở sàn, lỗ thông tầng nguy hiểm",
+    "ex": "床の開口部には必ず防護柵と注意標識を設置する。",
+    "exVn": "Tại các lỗ mở trên sàn bắt buộc phải dựng lan can chắn và biển cảnh báo."
+  },
+  {
+    "jp": "墜落防止",
+    "rom": "tsuirakuboushi",
+    "vn": "Phòng chống ngã từ trên cao",
+    "ex": "墜落防止のためにネットを張る。",
+    "exVn": "Giăng lưới an toàn để phòng ngừa người lao động rơi ngã từ trên cao."
+  },
+  {
+    "jp": "朝礼",
+    "rom": "chourei",
+    "vn": "Họp giao ban đầu giờ sáng trên công trường",
+    "ex": "毎朝8時の朝礼でその日の危険作業を確認する。",
+    "exVn": "Họp giao ban 8 giờ sáng mỗi ngày để phổ biến các công việc nguy hiểm trong ngày."
+  },
+  {
+    "jp": "危険予知",
+    "rom": "kikenyochi",
+    "vn": "Dự đoán rủi ro nguy hiểm (KYT)",
+    "ex": "作業前にKY活動（危険予知）シートを記入する。",
+    "exVn": "Ghi chép phiếu hoạt động KY (dự đoán mối nguy) trước khi bắt đầu làm việc."
+  },
+  {
+    "jp": "労災",
+    "rom": "rousai",
+    "vn": "Tai nạn lao động",
+    "ex": "今年度は無事故無災害（労災ゼロ）を達成した。",
+    "exVn": "Năm nay công trường đã đạt mục tiêu không tai nạn lao động (Zero tai nạn)."
+  },
+  {
+    "jp": "元請け",
+    "rom": "motouke",
+    "vn": "Tổng thầu thi công chính",
+    "ex": "元請けゼネコンの指示に従って作業を進める。",
+    "exVn": "Tiến hành công việc theo chỉ thị của tổng thầu chính."
+  },
+  {
+    "jp": "下請け",
+    "rom": "shitauke",
+    "vn": "Nhà thầu phụ thi công",
+    "ex": "一次下請け会社が専門工事を担当します。",
+    "exVn": "Công ty thầu phụ cấp một phụ trách hạng mục chuyên môn."
+  },
+  {
+    "jp": "是正",
+    "rom": "zesei",
+    "vn": "Khắc phục, sửa chữa lỗi thi công",
+    "ex": "検査で指摘された箇所を直ちに是正工事する。",
+    "exVn": "Khắc phục sửa chữa ngay các vị trí bị chỉ trích trong đợt kiểm tra."
+  }
+];
+
+const VOCAB_AGRICULTURE = [
+  {
+    "jp": "播種",
+    "rom": "hashu",
+    "vn": "Gieo hạt giống cây trồng",
+    "ex": "春の播種に向けて畑の土作りを行う。",
+    "exVn": "Làm đất tơi xốp cho ruộng để chuẩn bị gieo hạt vụ xuân."
+  },
+  {
+    "jp": "苗",
+    "rom": "nae",
+    "vn": "Cây giống, mạ non",
+    "ex": "丈夫な苗を育てることが豊作への第一歩だ。",
+    "exVn": "Chăm sóc cây giống khỏe mạnh là bước đầu tiên để đạt mùa màng bội thu."
+  },
+  {
+    "jp": "定植",
+    "rom": "teishoku",
+    "vn": "Trồng cây con vào luống đất chính",
+    "ex": "本葉が出たら畑に苗を定植する。",
+    "exVn": "Khi cây ra lá thật thì đem trồng cố định vào luống ruộng."
+  },
+  {
+    "jp": "収穫",
+    "rom": "shuukaku",
+    "vn": "Thu hoạch nông sản",
+    "ex": "秋にはたわわに実ったリンゴを収穫する。",
+    "exVn": "Vào mùa thu tiến hành thu hoạch những trái táo chín mọng trĩu cành."
+  },
+  {
+    "jp": "追肥",
+    "rom": "tsuihi",
+    "vn": "Bón phân bổ sung định kỳ",
+    "ex": "野菜の生育に合わせて適切な追肥を行う。",
+    "exVn": "Bón phân bổ sung đúng liều lượng phù hợp với sự phát triển của rau."
+  },
+  {
+    "jp": "摘芽",
+    "rom": "tekiga",
+    "vn": "Tỉa chồi, ngắt búp non",
+    "ex": "実を大きくするために余分な脇芽を摘芽する。",
+    "exVn": "Tỉa bớt các chồi nách dư thừa để quả tập trung phát triển to tròn."
+  },
+  {
+    "jp": "灌水",
+    "rom": "kansui",
+    "vn": "Tưới nước cho ruộng vườn",
+    "ex": "自動灌水システムで毎朝適切な水分を供給する。",
+    "exVn": "Cung cấp độ ẩm đầy đủ mỗi sáng bằng hệ thống tưới tự động."
+  },
+  {
+    "jp": "害虫駆除",
+    "rom": "gaichuukujo",
+    "vn": "Diệt trừ sâu bệnh hại mùa màng",
+    "ex": "無農薬栽培のため天敵を利用した害虫駆除を試みる。",
+    "exVn": "Thử nghiệm diệt trừ sâu bọ bằng thiên địch trong canh tác hữu cơ."
+  },
+  {
+    "jp": "ビニールハウス",
+    "rom": "bini-ruhausu",
+    "vn": "Nhà kính bọc nilon trồng rau quả",
+    "ex": "ビニールハウス内の温度と湿度を管理する。",
+    "exVn": "Quản lý nhiệt độ và độ ẩm bên trong nhà kính trồng cây."
+  },
+  {
+    "jp": "選果",
+    "rom": "senka",
+    "vn": "Phân loại kích cỡ và chất lượng trái cây",
+    "ex": "傷やサイズによって果物を選果機で選別する。",
+    "exVn": "Phân loại trái cây theo kích thước và vết xước bằng máy chọn quả."
+  },
+  {
+    "jp": "箱詰め",
+    "rom": "hakozume",
+    "vn": "Đóng hộp nông sản vận chuyển",
+    "ex": "丁寧にクッション材を敷いてトマトを箱詰めする。",
+    "exVn": "Lót lớp xốp cẩn thận rồi đóng cà chua vào thùng carton."
+  },
+  {
+    "jp": "出荷",
+    "rom": "shukka",
+    "vn": "Xuất hàng ra chợ đầu mối / siêu thị",
+    "ex": "朝採れたての新鮮な野菜を市場へ出荷する。",
+    "exVn": "Xuất các loại rau tươi vừa mới hái buổi sáng ra chợ đầu mối."
+  },
+  {
+    "jp": "鮮度",
+    "rom": "sendo",
+    "vn": "Độ tươi ngon của nông sản",
+    "ex": "低温輸送で野菜の鮮度を長持ちさせる。",
+    "exVn": "Vận chuyển nhiệt độ thấp để giữ được độ tươi ngon lâu dài cho rau."
+  },
+  {
+    "jp": "検品",
+    "rom": "kempin",
+    "vn": "Kiểm tra chất lượng thành phẩm thực phẩm",
+    "ex": "出荷前の最終検品で包装の密封性を確かめる。",
+    "exVn": "Kiểm tra độ kín của bao bì trong khâu kiểm hàng cuối cùng trước khi xuất xưởng."
+  },
+  {
+    "jp": "異物混入",
+    "rom": "ibutsu konnyuu",
+    "vn": "Lẫn dị vật lạ vào thực phẩm (Rất nguy hiểm)",
+    "ex": "金属探知機を使って異物混入を徹底的に防ぐ。",
+    "exVn": "Dùng máy dò kim loại để ngăn chặn triệt để nguy cơ lẫn dị vật vào thức ăn."
+  },
+  {
+    "jp": "衛生服",
+    "rom": "eiseifuku",
+    "vn": "Áo quần phòng sạch vô trùng công xưởng",
+    "ex": "食品加工ラインに入る前に衛生服と帽子を正しく着用する。",
+    "exVn": "Mặc đồ phòng sạch và đội mũ đúng quy chuẩn trước khi vào dây chuyền chế biến."
   }
 ];
 
@@ -16477,7 +17492,7 @@ const CC = useColors();
     const strokeCount = strokesRef.current.length;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -17316,7 +18331,7 @@ function EJUResult({ result, subject, subjectKey, onRetry, onBack, onAIAnalysis 
     setLoadingAI(true);
     const wrongList = wrongQs.slice(0,5).map(q=>`Q: ${q.q} | Học viên chọn: ${answers[q.id]} | Đáp án: ${q.a}`).join("\n");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:600,
@@ -18852,6 +19867,69 @@ const CONV_SCENARIOS = [
   { id:"travel",   icon:"✈️", title:"Du lịch Nhật Bản",      level:"N5", prompt:"Bạn là nhân viên hướng dẫn du lịch ở Tokyo. Giúp học viên về địa điểm, giao thông, ẩm thực. Từ vựng N5. Bắt đầu bằng: '東京へようこそ！どこに行きたいですか？'" },
 ];
 
+// ── Helpers cho AI Hội thoại (gọi API an toàn, chống lỗi "không hiểu") ──
+const CONV_MODEL = "claude-sonnet-4-20250514";
+
+async function convCallClaude({ system, messages, max_tokens = 500, retries = 1 }) {
+  let lastErr;
+  for (let a = 0; a <= retries; a++) {
+    try {
+      const res = await fetch("/api/claude", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: CONV_MODEL, max_tokens, system, messages })
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || d?.error) throw new Error(d?.error?.message || `HTTP ${res.status}`);
+      const text = (d?.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+      if (!text) throw new Error("empty response");
+      return text;
+    } catch (e) {
+      lastErr = e;
+      if (a < retries) await new Promise(r => setTimeout(r, 700));
+    }
+  }
+  throw lastErr;
+}
+
+// Lấy JSON đầu tiên trong chuỗi (chịu được ```json, lời dẫn, text thừa)
+function convParseJSON(raw) {
+  const m = (raw || "").match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch { return null; }
+}
+
+// Lịch sử gửi API: bỏ tin lỗi, bắt đầu bằng "user", gộp tin liên tiếp cùng role, giới hạn độ dài
+function convBuildHistory(msgs) {
+  const clean = msgs.filter(m => !m.error && m.content && m.content.trim())
+                    .map(m => ({ role: m.role, content: m.content }));
+  const merged = [];
+  for (const m of clean) {
+    const last = merged[merged.length - 1];
+    if (last && last.role === m.role) last.content += "\n" + m.content;
+    else merged.push({ ...m });
+  }
+  let trimmed = merged.slice(-20);
+  // API yêu cầu tin đầu tiên là "user" → mồi lại nếu lịch sử bắt đầu bằng lời AI
+  if (!trimmed.length || trimmed[0].role === "assistant") {
+    trimmed = [{ role: "user", content: "(Bắt đầu hội thoại)" }, ...trimmed];
+  }
+  return trimmed;
+}
+
+const convSystemPrompt = (sc) => sc.prompt + `
+
+QUY TẮC HỘI THOẠI (bắt buộc):
+- Đóng vai nhân vật ở trên, chỉ nói tiếng Nhật, câu ngắn, đúng cấp ${sc.level}. Câu "Bắt đầu bằng..." CHỈ dùng cho tin nhắn đầu tiên; các lượt sau tiếp tục tự nhiên, không lặp lại lời chào.
+- Luôn phản hồi đúng nội dung học viên vừa nói. TUYỆT ĐỐI không nói "không hiểu" / "もう一度言ってください" chỉ vì câu sai ngữ pháp, sai chính tả, thiếu dấu, thiếu trợ từ, viết bằng romaji, hoặc viết bằng tiếng Việt/Anh. Hãy đoán ý hợp lý nhất theo ngữ cảnh rồi trả lời tiếp.
+- Nếu học viên viết tiếng Việt/Anh/romaji: hiểu ý, đáp bằng tiếng Nhật đơn giản, kèm gợi ý ngắn cách nói câu đó bằng tiếng Nhật, rồi hỏi tiếp.
+- Chỉ khi thật sự không thể đoán ý mới hỏi lại (bằng tiếng Nhật), và nêu 1-2 khả năng bạn nghĩ học viên muốn nói.
+- Kết thúc mỗi lượt bằng một câu hỏi ngắn để hội thoại tiếp tục.`;
+
+const convAnalysisPrompt = `Bạn là giáo viên tiếng Nhật. Phân tích câu của học viên Việt Nam. Chỉ trả về MỘT đối tượng JSON, không markdown, không lời dẫn:
+{"grammar":85,"vocab":80,"natural":75,"correction":null,"suggestion":"câu tự nhiên hơn nếu có","error":"giải thích lỗi ngắn bằng tiếng Việt nếu có","praise":"lời khen ngắn tiếng Việt"}
+grammar/vocab/natural: số 0-100. correction: câu đúng nếu có lỗi (null nếu đúng).
+Nếu học viên viết tiếng Việt/Anh/romaji thay vì tiếng Nhật: correction = câu tiếng Nhật tương ứng, error = "Hãy thử viết bằng tiếng Nhật nhé", điểm vẫn chấm theo ý họ muốn nói. Giữ mỗi trường dưới 120 ký tự.`;
+
 function AIConversationPage() {
     const t = useT();
 const CC = useColors();
@@ -18875,76 +19953,72 @@ const CC = useColors();
     setSessionDone(false);
     setTotalScore({grammar:0,vocab:0,natural:0,count:0});
     setLoading(true);
+    // Câu mở đầu dự phòng: lấy đúng câu "Bắt đầu bằng: '...'" của tình huống
+    const fallbackOpen = (sc.prompt.match(/Bắt đầu bằng: '([^']+)'/) || [])[1] || "こんにちは！";
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:300,
-          system: sc.prompt + "\n\nQUAN TRỌNG: Chỉ nói tiếng Nhật thuần túy (không kèm tiếng Việt). Câu ngắn vừa phải. Phù hợp cấp " + sc.level + ".",
-          messages:[{role:"user", content:"(Bắt đầu hội thoại)"}]
-        })
+      const aiMsg = await convCallClaude({
+        system: convSystemPrompt(sc),
+        messages: [{role:"user", content:"(Bắt đầu hội thoại)"}],
+        max_tokens: 300
       });
-      const d = await res.json();
-      const aiMsg = d.content?.[0]?.text || "こんにちは！";
       setMessages([{role:"assistant", content:aiMsg}]);
-    } catch { setMessages([{role:"assistant", content:"こんにちは！よろしくお願いします。"}]); }
+    } catch { setMessages([{role:"assistant", content:fallbackOpen}]); }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 300);
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput("");
-    const newMsgs = [...messages, {role:"user", content:userMsg}];
+  const doSend = async (text, baseMsgs) => {
+    const userMsg = (text || "").trim();
+    if (!userMsg || loading) return;
+    const newMsgs = [...baseMsgs, {role:"user", content:userMsg}];
     setMessages(newMsgs);
     setLoading(true);
 
-    try {
-      // 1. Get AI conversation reply
-      const history = newMsgs.map(m => ({role:m.role, content:m.content}));
-      const convRes = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:400,
-          system: scenario.prompt + "\n\nQUAN TRỌNG: Chỉ nói tiếng Nhật. Câu ngắn. Cấp " + scenario.level + ".",
-          messages: history
-        })
-      });
-      const convD = await convRes.json();
-      const aiReply = convD.content?.[0]?.text || "なるほど！";
+    const history = convBuildHistory(newMsgs);
 
-      // 2. Analyze user's message
-      const analysisRes = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:400,
-          system:`Bạn là giáo viên tiếng Nhật. Phân tích câu tiếng Nhật của học viên. Trả lời JSON duy nhất không markdown:
-{"grammar":85,"vocab":80,"natural":75,"correction":null,"suggestion":"câu tự nhiên hơn nếu có","error":"giải thích lỗi nếu có","praise":"lời khen ngắn tiếng Việt"}
-grammar/vocab/natural: 0-100. correction: câu đúng nếu có lỗi (null nếu đúng).`,
-          messages:[{role:"user", content:`Học viên viết: "${userMsg}"\nCảnh: ${scenario.title} cấp ${scenario.level}`}]
-        })
-      });
-      const analysisD = await analysisRes.json();
-      const analysisRaw = analysisD.content?.[0]?.text || "{}";
-      const analysis = JSON.parse(analysisRaw.replace(/```json|```/g,"").trim());
+    // Hai việc độc lập: lỗi một bên KHÔNG làm mất bên kia
+    const [convR, anaR] = await Promise.allSettled([
+      convCallClaude({ system: convSystemPrompt(scenario), messages: history, max_tokens: 400 }),
+      convCallClaude({
+        system: convAnalysisPrompt,
+        messages: [{role:"user", content:`Học viên viết: "${userMsg}"\nCảnh: ${scenario.title} cấp ${scenario.level}`}],
+        max_tokens: 600, retries: 0
+      }),
+    ]);
 
+    const analysis = anaR.status === "fulfilled" ? convParseJSON(anaR.value) : null;
+    if (analysis) {
       setTotalScore(s => ({
-        grammar:  s.grammar  + (analysis.grammar||80),
-        vocab:    s.vocab    + (analysis.vocab||80),
-        natural:  s.natural  + (analysis.natural||80),
+        grammar:  s.grammar  + (Number(analysis.grammar) || 80),
+        vocab:    s.vocab    + (Number(analysis.vocab)   || 80),
+        natural:  s.natural  + (Number(analysis.natural) || 80),
         count:    s.count    + 1,
       }));
-
-      setMessages(prev => [...prev.slice(0,-1),
-        {role:"user", content:userMsg, analysis},
-        {role:"assistant", content:aiReply}
-      ]);
-
-    } catch {
-      setMessages(prev => [...prev, {role:"assistant", content:"すみません、もう一度言ってください。"}]);
     }
+
+    const userEntry = analysis ? {role:"user", content:userMsg, analysis} : {role:"user", content:userMsg};
+    const replyEntry = convR.status === "fulfilled"
+      ? {role:"assistant", content:convR.value}
+      : {role:"assistant", error:true, retryText:userMsg,
+         content:"⚠️ Không kết nối được với AI (không phải do câu của bạn). Bấm “Thử lại” nhé."};
+
+    setMessages([...baseMsgs, userEntry, replyEntry]);
     setLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const sendMessage = () => {
+    if (!input.trim() || loading) return;
+    const text = input;
+    setInput("");
+    doSend(text, messages.filter(m => !m.error));
+  };
+
+  const retryAt = (idx) => {
+    const m = messages[idx];
+    if (!m?.retryText || loading) return;
+    // bỏ tin lỗi + tin user bị lỗi rồi gửi lại
+    doSend(m.retryText, messages.slice(0, idx - 1).filter(x => !x.error));
   };
 
   const endSession = () => {
@@ -19036,9 +20110,15 @@ grammar/vocab/natural: 0-100. correction: câu đúng nếu có lỗi (null nế
               <div style={{ maxWidth:"80%", background:msgBg(msg.role), borderRadius:16, padding:"10px 14px",
                 borderBottomLeftRadius:msg.role==="assistant"?4:16, borderBottomRightRadius:msg.role==="user"?4:16,
                 border:`1px solid ${msg.role==="assistant"?dark?"rgba(37,99,235,0.3)":"rgba(37,99,235,0.15)":dark?"rgba(148,163,184,0.2)":"rgba(148,163,184,0.15)"}` }}>
-                <div style={{ fontSize:isMob?14:15, fontFamily:"'Noto Sans JP', sans-serif", color:dark?"#E2E8F0":CC.text, lineHeight:1.6 }}>
+                <div style={{ fontSize:isMob?14:15, fontFamily:"'Noto Sans JP', sans-serif", color:msg.error?"#EF4444":dark?"#E2E8F0":CC.text, lineHeight:1.6 }}>
                   {msg.content}
                 </div>
+                {msg.error && (
+                  <button onClick={()=>retryAt(i)} disabled={loading}
+                    style={{ marginTop:8, padding:"6px 14px", borderRadius:10, border:"1px solid rgba(239,68,68,0.4)", background:"transparent", color:"#EF4444", fontSize:12, fontWeight:700, cursor:loading?"not-allowed":"pointer", fontFamily:"'Nunito',sans-serif" }}>
+                    🔄 Thử lại
+                  </button>
+                )}
               </div>
             </div>
             {/* Analysis feedback for user messages */}
@@ -19085,7 +20165,7 @@ grammar/vocab/natural: 0-100. correction: câu đúng nếu có lỗi (null nế
       {!sessionDone && (
         <div style={{ display:"flex", gap:10 }}>
           <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} }}
+            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing&&e.keyCode!==229){e.preventDefault();sendMessage();} }}
             placeholder="日本語で入力してください... (Nhập tiếng Nhật)"
             style={{ flex:1, padding:"12px 16px", borderRadius:14, border:`1.5px solid ${dark?"rgba(56,189,248,0.25)":"rgba(56,189,248,0.3)"}`,
               background:dark?"rgba(15,23,42,0.8)":"white", color:dark?"#E2E8F0":CC.text,
@@ -20516,15 +21596,15 @@ function KanjiDiagramDetail({ node, onClose }) {
     <div className="ba-card" style={{ padding:0, overflow:"hidden", width:"100%" }}>
       <div style={{
         background: `linear-gradient(135deg,${lv.fg},${lv.fg}CC)`,
-        padding:"20px 20px 18px", textAlign:"center", position:"relative", overflow:"hidden"
+        padding:"14px 16px 12px", textAlign:"center", position:"relative", overflow:"hidden"
       }}>
         <button onClick={onClose} style={{
           position:"absolute", top:10, right:10, width:26, height:26, borderRadius:"50%",
           background:"rgba(255,255,255,0.2)", border:"none", color:"white", cursor:"pointer",
           fontSize:13, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center"
         }}>✕</button>
-        <div style={{ position:"absolute", top:-16, right:-8, fontSize:110, opacity:0.12, fontFamily:"'Noto Sans JP',sans-serif" }}>{node.kanji}</div>
-        <div style={{ fontSize:58, fontWeight:900, color:"white", fontFamily:"'Noto Sans JP',sans-serif", lineHeight:1, marginBottom:8, position:"relative" }}>{node.kanji}</div>
+        <div style={{ position:"absolute", top:-16, right:-8, fontSize:80, opacity:0.12, fontFamily:"'Noto Sans JP',sans-serif" }}>{node.kanji}</div>
+        <div style={{ fontSize:44, fontWeight:900, color:"white", fontFamily:"'Noto Sans JP',sans-serif", lineHeight:1, marginBottom:8, position:"relative" }}>{node.kanji}</div>
         <div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:8, position:"relative" }}>
           <span style={{ fontSize:11, fontWeight:800, background:"rgba(255,255,255,0.25)", color:"white", borderRadius:20, padding:"2px 10px" }}>{node.level}</span>
           {node.hv && <span style={{ fontSize:11, fontWeight:800, letterSpacing:1, background:"rgba(255,255,255,0.15)", color:"white", borderRadius:20, padding:"2px 10px" }}>Hán Việt: {node.hv}</span>}
@@ -20532,7 +21612,7 @@ function KanjiDiagramDetail({ node, onClose }) {
         <div style={{ fontSize:15, fontWeight:700, color:"rgba(255,255,255,0.95)", position:"relative" }}>{node.vn}</div>
       </div>
 
-      <div style={{ padding:18 }}>
+      <div style={{ padding:12 }}>
         {(node.on || node.kun) && (
           <div style={{ display:"flex", gap:10, marginBottom:14 }}>
             {node.on && (
@@ -20592,7 +21672,7 @@ function KanjiDiagramView() {
   const [levelFilter, setLevelFilter] = useState("all");
   const [showHV, setShowHV] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(!isTab);
-  const [tipsOpen, setTipsOpen] = useState(true);
+  const [tipsOpen, setTipsOpen] = useState(false);
   const [scale, setScale] = useState(0.85);
   const [pan, setPan] = useState({ x:40, y:40 });
   const viewportRef = useRef(null);
@@ -20704,8 +21784,9 @@ function KanjiDiagramView() {
     if (found) expandAncestorsAndFocus(found.kanji);
   };
 
+  useEffect(() => { const t = setTimeout(doFit, 60); return () => clearTimeout(t); }, []);
   const Sidebar = (
-    <div className="ba-card" style={{ padding:18, width: isTab?"100%":270, flexShrink:0, height:"fit-content" }}>
+    <div className="ba-card" style={{ padding:12, width: isTab?"100%":230, flexShrink:0, overflowY:"auto", scrollbarWidth:"none", boxSizing:"border-box" }}>
       <div style={{ fontWeight:900, fontSize:14, color:CC.text, marginBottom:10 }}>🔍 Tìm kiếm</div>
       <div style={{ position:"relative", marginBottom:18 }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={handleSearch}
@@ -20760,6 +21841,7 @@ function KanjiDiagramView() {
         </div>
       </div>
 
+      <button onClick={()=>setTipsOpen(o=>!o)} style={{ width:"100%", padding:"6px", marginBottom: tipsOpen?8:0, background:"transparent", border:`1px solid ${CC.border}`, borderRadius:10, fontSize:11, fontWeight:700, color:CC.muted, cursor:"pointer" }}>{tipsOpen ? "▲ Ẩn hướng dẫn" : "▼ Hướng dẫn sử dụng"}</button>
       {tipsOpen && (
         <div style={{ fontSize:11, color:CC.muted, lineHeight:1.9, borderTop:dark?"1px solid rgba(255,255,255,0.08)":"1px solid rgba(0,0,0,0.06)", paddingTop:12 }}>
           1. Kéo thả để di chuyển sơ đồ<br/>
@@ -20778,7 +21860,7 @@ function KanjiDiagramView() {
   const highlightSet = selected ? new Set([selected.kanji, activeParent, ...activeChildren].filter(Boolean)) : null;
 
   return (
-    <div style={{ display:"flex", gap:16, alignItems:"flex-start", flexDirection: isTab ? "column" : "row" }}>
+    <div style={{ display:"flex", gap:12, alignItems:"stretch", flexDirection: isTab ? "column" : "row", flex:1, minHeight:0 }}>
       {/* Sidebar toggle (mobile/tablet) */}
       {isTab && (
         <button className="ba-btn" onClick={()=>setSidebarOpen(o=>!o)}
@@ -20789,17 +21871,18 @@ function KanjiDiagramView() {
       {(!isTab || sidebarOpen) && Sidebar}
 
       {/* Canvas */}
-      <div style={{ flex:1, minWidth:0, width:"100%" }}>
+      <div style={{ flex:1, minWidth:0, width:"100%", position:"relative", display:"flex", flexDirection:"column", minHeight:0 }}>
         <div
           ref={viewportRef}
           onMouseDown={onPointerDown}
           onTouchStart={onPointerDown}
           onWheel={onWheel}
-          className="ba-card"
+          className="ba-card kj-viewport"
           style={{
             padding:0, overflow:"hidden", position:"relative",
-            height: isMob ? 460 : 620,
+            flex: isMob ? "none" : 1, height: isMob ? 460 : undefined, minHeight: 300,
             cursor: dragState.current ? "grabbing" : "grab",
+            backgroundColor: dark ? "#0B1120" : "#F5F9FF",
             backgroundImage: dark
               ? "radial-gradient(rgba(255,255,255,0.06) 1px,transparent 1px)"
               : "radial-gradient(rgba(0,0,0,0.06) 1px,transparent 1px)",
@@ -20900,17 +21983,18 @@ function KanjiDiagramView() {
           </div>
         </div>
 
-        {/* Detail panel (below canvas, floats up) */}
-        <div style={{ marginTop:16 }}>
-          {selected ? (
-            <KanjiDiagramDetail node={selected} onClose={()=>setSelected(null)}/>
-          ) : (
-            <div className="ba-card" style={{ padding:"24px 20px", textAlign:"center" }}>
-              <div style={{ fontSize:24, marginBottom:6 }}>👆</div>
-              <div style={{ fontSize:13, color:CC.muted, lineHeight:1.6 }}>Nhấn vào một chữ Kanji trong sơ đồ để xem giải thích nghĩa và cách nhớ</div>
-            </div>
-          )}
-        </div>
+      </div>
+
+      {/* Detail panel (right column) */}
+      <div style={{ width: isTab ? "100%" : 270, flexShrink:0, minHeight:0, overflowY:"auto", display:"flex", flexDirection:"column" }}>
+        {selected ? (
+          <KanjiDiagramDetail node={selected} onClose={()=>setSelected(null)}/>
+        ) : (
+          <div className="ba-card" style={{ padding:"24px 20px", textAlign:"center" }}>
+            <div style={{ fontSize:24, marginBottom:6 }}>👆</div>
+            <div style={{ fontSize:13, color:CC.muted, lineHeight:1.6 }}>Nhấn vào một chữ Kanji trong sơ đồ để xem giải thích nghĩa và cách nhớ</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -20989,9 +22073,9 @@ function KanjiBuilderPage() {
   const isCorrect = checked && (quizSlots.join("")===k.radicals.join("") || quizSlots.sort().join("")===k.radicals.slice().sort().join(""));
 
   return (
-    <div style={{ maxWidth: view==="diagram" ? 1120 : 720, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif", transition:"max-width 0.2s" }}>
+    <div style={{ maxWidth: view==="diagram" ? 1360 : 720, margin:"0 auto", padding:isMob?"12px 10px":"14px 24px", fontFamily:"'Nunito',sans-serif", transition:"max-width 0.2s", flex:1, minHeight:0, width:"100%", boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
       {/* Header */}
-      <div style={{ background:"linear-gradient(135deg,#451A03,#92400E,#B45309)", borderRadius:24, padding:isMob?"18px":"28px 36px", color:"white", marginBottom:24, position:"relative", overflow:"hidden" }}>
+      <div style={{ background:"linear-gradient(135deg,#451A03,#92400E,#B45309)", borderRadius:24, padding:isMob?"14px 18px":"14px 28px", color:"white", marginBottom:12, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:-20, right:-10, fontSize:120, opacity:0.07 }}>⛩️</div>
         <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>KANJI BUILDER · BỘ THỦ</div>
         <div style={{ fontSize:isMob?20:26, fontWeight:900, marginBottom:6 }}>{"⛩️ Kanji Bộ Thủ (Radicals)"}</div>
@@ -21207,7 +22291,7 @@ const CC = useColors();
     const stats = gatherStats();
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:800,
@@ -23126,6 +24210,120 @@ function Footer({setPage}){
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// TỪ VỰNG CHUYÊN NGÀNH — trang danh sách (không phải flashcard)
+// ═══════════════════════════════════════════════════════════
+const SPECIALIZED_VOCAB = [
+  { value:"💻 IT",          label:"Công nghệ IT",          icon:"💻",  color:"#38BDF8", data:()=>VOCAB_IT },
+  { value:"🍳 Đầu bếp",     label:"Đầu bếp & Nhà hàng",    icon:"🍳",  color:"#F59E0B", data:()=>VOCAB_RESTAURANT },
+  { value:"⚙️ Kỹ sư",       label:"Kỹ sư & Cơ khí",        icon:"⚙️", color:"#10B981", data:()=>VOCAB_ENGINEERING },
+  { value:"💼 Kinh doanh",  label:"Kinh doanh",             icon:"💼",  color:"#8B5CF6", data:()=>VOCAB_BUSINESS },
+  { value:"🏥 Y tế",        label:"Y tế & Điều dưỡng",     icon:"🏥",  color:"#EC4899", data:()=>VOCAB_MEDICAL },
+  { value:"🏗️ Xây dựng",    label:"Xây dựng & Kiến trúc",  icon:"🏗️", color:"#F97316", data:()=>VOCAB_CONSTRUCTION },
+  { value:"🌾 Nông nghiệp", label:"Nông nghiệp",            icon:"🌾",  color:"#84CC16", data:()=>VOCAB_AGRICULTURE },
+];
+
+function SpecializedVocabPage({ initialIndustry = "all" }) {
+  const [dark] = useDarkMode();
+  const [industry, setIndustry] = useState(initialIndustry);
+  const [query, setQuery] = useState("");
+  const [openKey, setOpenKey] = useState(null);
+
+  const groups = SPECIALIZED_VOCAB.map(g => ({ ...g, words: g.data() }));
+  const shown = industry === "all" ? groups : groups.filter(g => g.value === industry);
+  const q = query.trim().toLowerCase();
+  const match = w => !q || [w.jp, w.rom, w.vn, w.ex, w.exVn]
+    .some(s => (s || "").toLowerCase().includes(q));
+  const total = groups.reduce((n, g) => n + g.words.length, 0);
+  const anyResult = shown.some(g => g.words.some(match));
+
+  const FG = dark ? "#E2E8F0" : "#0F172A";
+  const SUB = dark ? "#94A3B8" : "#64748B";
+  const CARD = dark ? "#111827" : "#FFFFFF";
+  const BORDER = dark ? "rgba(148,163,184,0.18)" : "rgba(37,99,235,0.12)";
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px 40px", fontFamily: "'Nunito',sans-serif", color: FG }}>
+      <h1 style={{ fontSize: 22, fontWeight: 900, margin: "0 0 4px" }}>💼 Từ vựng chuyên ngành</h1>
+      <div style={{ fontSize: 13, color: SUB, marginBottom: 16 }}>
+        {total} từ · {groups.length} ngành · Nhật ngữ đi làm thực tế
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {[{ value: "all", label: "Tất cả", icon: "📚", color: "#2563EB" }, ...groups].map(g => {
+          const active = industry === g.value;
+          return (
+            <button key={g.value} onClick={() => setIndustry(g.value)} style={{
+              padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+              fontWeight: 700, fontSize: 12, fontFamily: "inherit",
+              border: `1.5px solid ${g.color}`,
+              background: active ? g.color : "transparent",
+              color: active ? "#fff" : g.color,
+            }}>
+              {g.icon} {g.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Tìm theo tiếng Nhật, romaji hoặc nghĩa..."
+        style={{
+          width: "100%", boxSizing: "border-box", padding: "10px 14px", marginBottom: 20,
+          borderRadius: 12, border: `1.5px solid ${BORDER}`, background: CARD, color: FG,
+          fontSize: 14, fontFamily: "inherit", outline: "none",
+        }}
+      />
+
+      {shown.map(g => {
+        const words = g.words.filter(match);
+        if (!words.length) return null;
+        return (
+          <section key={g.value} style={{ marginBottom: 26 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 800, color: g.color, margin: "0 0 10px" }}>
+              {g.icon} {g.label}{" "}
+              <span style={{ fontSize: 11, color: SUB, fontWeight: 600 }}>({words.length} từ)</span>
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 10 }}>
+              {words.map((w, i) => {
+                const key = g.value + w.jp + i;
+                const open = openKey === key;
+                return (
+                  <div key={key} onClick={() => setOpenKey(open ? null : key)} style={{
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    borderLeft: `3px solid ${g.color}`, borderRadius: 12, padding: "12px 14px",
+                    cursor: "pointer",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 20, fontWeight: 900 }}>{w.jp}</span>
+                      <span style={{ fontSize: 12, color: SUB }}>{w.rom}</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{w.vn}</div>
+                    {open && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${BORDER}` }}>
+                        {w.ex && <div style={{ fontSize: 13, marginBottom: 4 }}>{w.ex}</div>}
+                        {w.exVn && <div style={{ fontSize: 12, color: SUB }}>{w.exVn}</div>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+
+      {!anyResult && (
+        <div style={{ textAlign: "center", color: SUB, padding: 30, fontSize: 14 }}>
+          Không tìm thấy từ nào phù hợp.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App(){
   const [page,setPage]=useState("home");
   const {streak,markLearned}=useStreak();
@@ -23133,18 +24331,22 @@ export default function App(){
   const [dark] = useDarkMode();
   const { user, loading: authLoading, gsiReady, signIn, signOut } = useGoogleAuth();
   const [showLogin, setShowLogin] = useState(false);
-  const navigate=(id)=>{
+  const [vocabIndustry,setVocabIndustry]=useState("all");
+  const navigate=(id,arg)=>{
+    if(id==="vocab") setVocabIndustry(typeof arg==="string"?arg:"all");
     setPage(id);
     setAnimKey(k=>k+1);
     if(typeof window!=="undefined") window.scrollTo({top:0,behavior:"smooth"});
   };
 
+  const isFixedPage = page === "radical" && typeof window !== "undefined" && window.innerWidth >= 900;
   const render=()=>{
     switch(page){
       case "profile":   return <ProfilePage user={user} onSignIn={()=>setShowLogin(true)} onSignOut={signOut} setPage={navigate} loading={authLoading} gsiReady={gsiReady}/>;
       case "home":      return <HomePage setPage={navigate} streak={streak}/>;
       case "streak":    return <StreakPage streak={streak}/>;
       case "flashcard": return <FlashcardPage markLearned={markLearned}/>;
+      case "vocab":     return <SpecializedVocabPage initialIndustry={vocabIndustry}/>;
       case "hiragana":  return <KanaPage type="hiragana"/>;
       case "katakana":  return <KanaPage type="katakana"/>;
       case "grammar":   return <GrammarPage/>;
@@ -23177,6 +24379,8 @@ export default function App(){
         ? "linear-gradient(180deg,#0F172A 0%,#0D1B2E 100%)"
         : "linear-gradient(180deg,#EFF6FF 0%,#DBEAFE 100%)",
       minHeight:"100vh",
+      height: isFixedPage ? "100vh" : "auto",
+      overflow: isFixedPage ? "hidden" : "visible",
       color: dark ? "#E2E8F0" : "#0F172A",
     }}>
       <Nav page={page} setPage={navigate} streakCount={streak.streak} user={user} onLoginClick={()=>setShowLogin(true)}/>
@@ -23186,10 +24390,10 @@ export default function App(){
           <div key={i} style={{"--i":v}}/>
         ))}
       </div>
-      <div key={animKey} className="ba-page-enter" style={{minHeight:"calc(100vh - 56px)"}}>
+      <div key={animKey} className="ba-page-enter" style={{minHeight: isFixedPage ? 0 : "calc(100vh - 56px)", height: isFixedPage ? "calc(100vh - 56px)" : "auto", overflow: isFixedPage ? "hidden" : "visible"}}>
         {render()}
       </div>
-      <Footer setPage={navigate}/>
+      {!isFixedPage && <Footer setPage={navigate}/>}
       {showLogin && <LoginModal onClose={()=>setShowLogin(false)} onSignIn={()=>{signIn();setShowLogin(false);}} loading={authLoading} gsiReady={gsiReady}/>}
     </div>
   );
