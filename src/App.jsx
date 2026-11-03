@@ -1625,6 +1625,60 @@ function Nav({ page, setPage, streakCount, user }) {
                       </button>
                     ))}
                   </div>
+
+                  {/* Mobile extra section: Từ vựng chuyên ngành trong mục Chữ Nhật */}
+                  {group.id === "script" && (() => {
+                    const specItems = [
+                      { icon:"💻", label:"Công nghệ IT",          color:"#38BDF8" },
+                      { icon:"🍳", label:"Đầu bếp & Nhà hàng",   color:"#F59E0B" },
+                      { icon:"⚙️", label:"Kỹ sư & Cơ khí",       color:"#10B981" },
+                      { icon:"💼", label:"Kinh doanh",            color:"#8B5CF6" },
+                      { icon:"🏥", label:"Y tế & Điều dưỡng",    color:"#EC4899" },
+                      { icon:"🏗️", label:"Xây dựng & Kiến trúc", color:"#F97316" },
+                      { icon:"🌾", label:"Nông nghiệp",           color:"#84CC16" },
+                    ];
+                    return (
+                      <div style={{
+                        marginTop: 10,
+                        padding: "10px",
+                        background: "rgba(15,23,42,0.6)",
+                        border: "1px solid rgba(249,115,22,0.25)",
+                        borderRadius: 14,
+                      }}>
+                        <div style={{
+                          fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
+                          color: "#F97316", marginBottom: 8,
+                          display: "flex", alignItems: "center", gap: 6
+                        }}>
+                          <span>💼</span>
+                          <span>TỪ VỰNG CHUYÊN NGÀNH</span>
+                          <span style={{ flex: 1, height: 1, background: "rgba(249,115,22,0.2)" }} />
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                          {specItems.map((sp, si) => (
+                            <button key={si} onClick={() => go("flashcard")}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 7,
+                                padding: "8px 9px", border: `1px solid ${sp.color}30`,
+                                borderRadius: 10, background: `${sp.color}12`,
+                                color: "rgba(241,245,249,0.92)",
+                                font: "700 12px 'Nunito',sans-serif",
+                                textAlign: "left", cursor: "pointer",
+                                gridColumn: si === specItems.length - 1 ? "1 / -1" : undefined
+                              }}>
+                              <span style={{
+                                width: 24, height: 24, borderRadius: 8, flexShrink: 0,
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 13, background: `${sp.color}22`,
+                                border: `1px solid ${sp.color}40`
+                              }}>{sp.icon}</span>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sp.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
