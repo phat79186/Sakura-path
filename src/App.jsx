@@ -1455,8 +1455,8 @@ function Nav({ page, setPage, streakCount, user }) {
                                   paddingTop: 8,
                                 }}>
                                   <div style={{
-                                    fontSize: 9, fontWeight: 800, letterSpacing: "0.1em",
-                                    color: "rgba(249,115,22,0.8)", paddingLeft: 8, paddingBottom: 6,
+                                    fontSize: 12, fontWeight: 800, letterSpacing: "0.08em",
+                                    color: "rgba(249,115,22,0.9)", paddingLeft: 8, paddingBottom: 6,
                                     display: "flex", alignItems: "center", gap: 6
                                   }}>
                                     <span>💼</span>
