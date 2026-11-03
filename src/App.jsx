@@ -17789,7 +17789,6 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
               background: dark?"rgba(15,23,42,0.85)":"rgba(248,250,252,0.95)",
               borderRadius:16 }}>
               {/* Single canvas: guide char + grid + user strokes all drawn together */}
-              /* MOBILE FIX: responsive canvas size */
           <canvas ref={canvasRef} width={isMob ? Math.min(typeof window !== "undefined" ? window.innerWidth - 64 : 280, 280) : 280} height={isMob ? Math.min(typeof window !== "undefined" ? window.innerWidth - 64 : 280, 280) : 280}
                 style={{ width:"100%", aspectRatio:"1", borderRadius:16, display:"block", touchAction:"none",
                   cursor:"crosshair", position:"relative", zIndex:2,
