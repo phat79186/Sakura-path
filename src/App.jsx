@@ -784,6 +784,7 @@ if (typeof document !== "undefined") {
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
       }
+        
       canvas {
         touch-action: none;
         max-width: 100%;
@@ -1305,9 +1306,12 @@ function Nav({ page, setPage, streakCount, user }) {
   useEffect(() => { if (!isDrawer) setOpen(false); }, [isDrawer]);
   useEffect(() => {
     if (!(isDrawer && open)) return;
-    const prev = document.body.style.overflow;
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    html.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prevBody; html.style.overflow = prevHtml; };
   }, [isDrawer, open]);
 
   return (
@@ -1570,6 +1574,7 @@ function Nav({ page, setPage, streakCount, user }) {
           style={{
             position: "fixed", top: 56, left: 0, right: 0, bottom: 0, zIndex: 9999,
             background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
+            touchAction: "none", overscrollBehavior: "contain",
             animation: "fadeIn 0.2s ease"
           }}
           onClick={() => setOpen(false)}
@@ -1580,6 +1585,7 @@ function Nav({ page, setPage, streakCount, user }) {
               borderBottom: "1px solid rgba(56,189,248,0.2)",
               maxHeight: "calc(100dvh - 56px - env(safe-area-inset-bottom,0px))",
               overflowY: "auto", WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain", touchAction: "pan-y",
               padding: "12px 14px calc(14px + env(safe-area-inset-bottom,0px))",
               boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
               animation: "slideDown 0.25s cubic-bezier(.4,0,.2,1)"
@@ -24244,7 +24250,9 @@ function SpecializedVocabPage({ initialIndustry = "all" }) {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px 40px", fontFamily: "'Nunito',sans-serif", color: FG }}>
-      <h1 style={{ fontSize: 22, fontWeight: 900, margin: "0 0 4px" }}>💼 Từ vựng chuyên ngành</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 900, margin: "0 0 4px", color: "rgba(249,115,22,0.9)" }}>
+  💼 Từ vựng chuyên ngành
+</h1>
       <div style={{ fontSize: 13, color: SUB, marginBottom: 16 }}>
         {total} từ · {groups.length} ngành · Nhật ngữ đi làm thực tế
       </div>
