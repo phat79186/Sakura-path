@@ -4896,8 +4896,8 @@ function HomePage({setPage, streak}){
       badge:"🌏",label:"Thực Tế & Thói Quen",sub:"Tin tức · Văn hóa · Heatmap",
       accent:"#10B981",
       items:[
-        {icon:"📰",title:"Tin Tức Nhật",tag:"N5→N3",desc:"Furigana · bấm từ xem nghĩa · quiz đọc hiểu",page:"news",color:"#0EA5E9"},
-        {icon:"🏯",title:"Văn Hóa Nhật",tag:"Audio",desc:"Ojigi · phép ăn · học đường · câu thực dụng",page:"culture",color:"#B45309"},
+        {icon:"📺",title:"Tin Tức Trực Tiếp",tag:"Video",desc:"日テレNEWS · NHK World · tin tức 24/7",page:"news",color:"#0EA5E9"},
+        {icon:"🏯",title:"Văn Hóa Nhật Bản",tag:"日本語",desc:"Video tiếng Nhật · ẩm thực · trà đạo · Kabuki",page:"culture",color:"#B45309"},
         {icon:"📅",title:"Study Heatmap",tag:"52 tuần",desc:"Cường độ học · streak · màu theo ngày",page:"heatmap",color:"#16A34A"},
         {icon:"⚡",title:"Bài Học 1 Phút",tag:"Daily",desc:"15 mini-lesson · Kanji · Từ vựng · quiz nhanh",page:"mini",color:"#DC2626"},
         {icon:"👥",title:"Nhóm Học",tag:"Cộng đồng",desc:"Bảng xếp hạng · thi đấu từ vựng",page:"group",color:"#059669"},
@@ -19332,6 +19332,169 @@ const CC = useColors();
 }
 
 // ════════════════════════════════════════════════════════════════
+// POMODORO — helpers dùng chung + bộ theo dõi chạy nền ở cấp App
+// ════════════════════════════════════════════════════════════════
+const POMO_WORK_MIN = 25, POMO_BREAK_MIN = 5;
+const POMO_KEY = "sp_timer_state";
+const pomoFull = (m) => (m === "work" ? POMO_WORK_MIN : POMO_BREAK_MIN) * 60;
+
+function pomoRingBell() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.45, 0.9].forEach(d => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = "sine";
+      gain.gain.setValueAtTime(0.5, ctx.currentTime + d);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + 0.4);
+      osc.start(ctx.currentTime + d); osc.stop(ctx.currentTime + d + 0.4);
+    });
+  } catch {}
+}
+
+function pomoLoadState() {
+  try {
+    const sv = JSON.parse(localStorage.getItem(POMO_KEY) || "null");
+    if (sv && (sv.mode === "work" || sv.mode === "break")) {
+      if (sv.running && sv.endAt) {
+        return { mode: sv.mode, running: true, endAt: sv.endAt,
+                 seconds: Math.max(0, Math.ceil((sv.endAt - Date.now()) / 1000)), completed: !!sv.completed };
+      }
+      const ps = Number(sv.pausedSeconds);
+      return { mode: sv.mode, running: false, endAt: null,
+               seconds: ps > 0 && ps <= pomoFull(sv.mode) ? ps : pomoFull(sv.mode), completed: !!sv.completed };
+    }
+  } catch {}
+  return { mode: "work", running: false, endAt: null, seconds: pomoFull("work"), completed: false };
+}
+
+// Kết thúc một phiên: ghi thống kê + heatmap, chuyển sang chế độ kế tiếp, kêu chuông, gửi thông báo trình duyệt.
+// Trả về null nếu phiên này đã được xử lý rồi (tránh ghi trùng).
+function pomoComplete(finishedMode, endAt) {
+  let sv = null;
+  try { sv = JSON.parse(localStorage.getItem(POMO_KEY) || "null"); } catch {}
+  if (sv && (!sv.running || (endAt && sv.endAt !== endAt))) return null;
+
+  const lateMs = Date.now() - (endAt || Date.now());
+  const today = new Date().toDateString();
+  let td = {};
+  try { td = JSON.parse(localStorage.getItem("sp_timer_today") || "{}"); } catch {}
+  let sessions = td.date === today ? (td.sessions || 0) : 0;
+  let totalMins = td.date === today ? (td.totalMins || 0) : 0;
+
+  if (finishedMode === "work") {
+    sessions += 1; totalMins += POMO_WORK_MIN;
+    try { localStorage.setItem("sp_timer_today", JSON.stringify({ date: today, sessions, totalMins })); } catch {}
+    try {
+      const hmap = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
+      const day = new Date().toISOString().slice(0, 10);
+      hmap[day] = Math.min(4, (hmap[day] || 0) + 1);
+      localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
+    } catch {}
+  }
+
+  const nextMode = finishedMode === "work" ? "break" : "work";
+  try {
+    localStorage.setItem(POMO_KEY, JSON.stringify({
+      mode: nextMode, running: false, endAt: null, pausedSeconds: pomoFull(nextMode), completed: finishedMode === "work"
+    }));
+  } catch {}
+
+  if (lateMs < 5000) pomoRingBell();
+  try {
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+      new Notification(finishedMode === "work" ? "🍅 Hết 25 phút tập trung!" : "⏰ Hết giờ nghỉ!", {
+        body: finishedMode === "work" ? "Nghỉ 5 phút nhé. Phiên học đã được ghi vào thống kê." : "Quay lại học tiếp nào!",
+        tag: "sp-pomodoro"
+      });
+    }
+  } catch {}
+
+  return { nextMode, sessions, totalMins, completed: finishedMode === "work" };
+}
+
+const pomoFmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+// Chạy ở cấp App: đếm giờ khi đang ở trang khác, hiện chip thời gian + thông báo khi hết giờ.
+function PomodoroWatcher({ page, setPage }) {
+  const [st, setSt] = useState(pomoLoadState);
+  const [toast, setToast] = useState(null);
+  const pageRef = React.useRef(page);
+  pageRef.current = page;
+
+  useEffect(() => {
+    const check = () => {
+      const s = pomoLoadState();
+      if (s.running && s.endAt && s.seconds <= 0 && pageRef.current !== "timer") {
+        const r = pomoComplete(s.mode, s.endAt);
+        if (r) setToast({ finished: s.mode });
+      }
+      const n = pomoLoadState();
+      setSt(prev => (prev.mode === n.mode && prev.running === n.running && prev.seconds === n.seconds) ? prev : n);
+    };
+    check();
+    const id = setInterval(check, 500);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => { if (page === "timer") setToast(null); }, [page]);
+
+  // Nhấp nháy tiêu đề tab khi hết giờ mà người dùng đang ở tab khác
+  useEffect(() => {
+    if (!toast) return;
+    const original = document.title;
+    document.title = (toast.finished === "work" ? "🍅 Hết giờ học! · " : "⏰ Hết giờ nghỉ! · ") + original;
+    return () => { document.title = original; };
+  }, [toast]);
+
+  const showChip = st.running && page !== "timer";
+  if (!showChip && !toast) return null;
+
+  const isWork = st.mode === "work";
+  return (
+    <>
+      {toast && (
+        <div role="alert" style={{
+          position: "fixed", top: 66, left: "50%", transform: "translateX(-50%)", zIndex: 2000,
+          width: "min(94vw, 460px)", background: toast.finished === "work" ? "#4338CA" : "#059669", color: "white",
+          borderRadius: 16, padding: "14px 16px", boxShadow: "0 10px 32px rgba(0,0,0,0.35)",
+          display: "flex", alignItems: "center", gap: 12, fontFamily: "'Nunito',sans-serif"
+        }}>
+          <span style={{ fontSize: 28 }}>{toast.finished === "work" ? "🍅" : "⏰"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 15 }}>
+              {toast.finished === "work" ? "Hết 25 phút tập trung!" : "Hết giờ nghỉ!"}
+            </div>
+            <div style={{ fontSize: 12.5, opacity: 0.92, lineHeight: 1.4 }}>
+              {toast.finished === "work" ? "Phiên học đã được ghi vào thống kê. Nghỉ 5 phút nhé." : "Quay lại học tiếp nào!"}
+            </div>
+          </div>
+          <button onClick={() => { setToast(null); setPage("timer"); }} style={{
+            background: "white", color: "#1e1b4b", border: "none", borderRadius: 10, padding: "7px 12px",
+            fontWeight: 800, fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap"
+          }}>Mở Pomodoro</button>
+          <button onClick={() => setToast(null)} aria-label="Đóng" style={{
+            background: "transparent", color: "white", border: "none", fontSize: 18, cursor: "pointer", padding: 2
+          }}>✕</button>
+        </div>
+      )}
+      {showChip && (
+        <button onClick={() => setPage("timer")} title="Quay lại Pomodoro" style={{
+          position: "fixed", right: 14, bottom: 14, zIndex: 1500,
+          background: isWork ? "#4338CA" : "#10B981", color: "white", border: "none", borderRadius: 999,
+          padding: "9px 16px", fontWeight: 900, fontSize: 14, cursor: "pointer",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.3)", display: "flex", alignItems: "center", gap: 8,
+          fontFamily: "'Nunito',sans-serif", fontVariantNumeric: "tabular-nums"
+        }}>
+          <span>{isWork ? "🍅" : "☕"}</span>{pomoFmt(st.seconds)}
+        </button>
+      )}
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
 // STUDY TIMER PAGE — Pomodoro 25/5 + ghi heatmap
 // ════════════════════════════════════════════════════════════════
 function StudyTimerPage() {
@@ -19342,17 +19505,8 @@ const CC = useColors();
 
   const WORK_MIN = 25, BREAK_MIN = 5;
 
-  const [mode, setMode]         = useState("work"); // "work"|"break"
-  const [seconds, setSeconds]   = useState(WORK_MIN * 60);
-  const [running, setRunning]   = useState(false);
-  const [sessions, setSessions] = useState(() => {
-    try { const s=JSON.parse(localStorage.getItem("sp_timer_today")||"{}"); return s.date===new Date().toDateString()?s.sessions:0; } catch { return 0; }
-  });
-  const [totalMins, setTotalMins] = useState(() => {
-    try { const s=JSON.parse(localStorage.getItem("sp_timer_today")||"{}"); return s.date===new Date().toDateString()?s.totalMins:0; } catch { return 0; }
-  });
-  const [completed, setCompleted] = useState(false);
-  const [suggestion, setSuggestion] = useState(null);
+  // ── Trạng thái đồng hồ được lưu (mốc giờ kết thúc) để không mất khi thoát trang / tải lại ──
+  const fullSecs = pomoFull;
 
   const SUGGESTIONS = [
     {icon:"🧠",text:"Ôn 10 flashcard SRS hôm nay",page:"flashcard",color:"#7C3AED"},
@@ -19363,72 +19517,96 @@ const CC = useColors();
     {icon:"💬",text:"Chat AI 1 tình huống thực tế",page:"chat",color:"#0EA5E9"},
     {icon:"🎮",text:"Chơi 5 câu game ghép từ",page:"game",color:"#4F46E5"},
   ];
+  const pickSuggestion = () => SUGGESTIONS[Math.floor(Math.random()*SUGGESTIONS.length)];
 
-  const intervalRef = React.useRef(null);
+  const [init] = useState(pomoLoadState);
+  const [mode, setMode]         = useState(init.mode); // "work"|"break"
+  const [seconds, setSeconds]   = useState(init.seconds);
+  const [running, setRunning]   = useState(init.running);
+  const [endAt, setEndAt]       = useState(init.endAt);
+  const [sessions, setSessions] = useState(() => {
+    try { const s=JSON.parse(localStorage.getItem("sp_timer_today")||"{}"); return s.date===new Date().toDateString()?s.sessions:0; } catch { return 0; }
+  });
+  const [totalMins, setTotalMins] = useState(() => {
+    try { const s=JSON.parse(localStorage.getItem("sp_timer_today")||"{}"); return s.date===new Date().toDateString()?s.totalMins:0; } catch { return 0; }
+  });
+  const [completed, setCompleted] = useState(init.completed && init.mode === "break");
+  const [suggestion, setSuggestion] = useState(() => (init.completed && init.mode === "break") ? pickSuggestion() : null);
 
-  const tick = React.useCallback(() => {
-    setSeconds(s => {
-      if (s <= 1) {
-        // Session complete
-        if (mode === "work") {
-          // Ring bell
-          try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.value = 880; osc.type = "sine";
-            gain.gain.setValueAtTime(0.5, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-            osc.start(); osc.stop(ctx.currentTime + 1.5);
-          } catch {}
-          const newSessions = sessions + 1;
-          const newMins = totalMins + WORK_MIN;
-          setSessions(newSessions);
-          setTotalMins(newMins);
-          localStorage.setItem("sp_timer_today", JSON.stringify({date:new Date().toDateString(), sessions:newSessions, totalMins:newMins}));
-          // Write to heatmap
-          try {
-            const hmap = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
-            const today = new Date().toISOString().slice(0,10);
-            hmap[today] = Math.min(4, (hmap[today]||0)+1);
-            localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
-          } catch {}
-          setMode("break");
-          setCompleted(true);
-          setSuggestion(SUGGESTIONS[Math.floor(Math.random()*SUGGESTIONS.length)]);
-          setRunning(false);
-          return BREAK_MIN * 60;
-        } else {
-          setMode("work");
-          setCompleted(false);
-          setRunning(false);
-          return WORK_MIN * 60;
-        }
-      }
-      return s - 1;
-    });
-  }, [mode, sessions, totalMins]);
+  const modeRef = React.useRef(mode);
+  modeRef.current = mode;
+  const endAtRef = React.useRef(endAt);
+  endAtRef.current = endAt;
 
+  // Lưu trạng thái mỗi khi thay đổi
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(tick, 1000);
-    } else {
-      clearInterval(intervalRef.current);
-    }
-    return () => clearInterval(intervalRef.current);
-  }, [running, tick]);
+    try {
+      localStorage.setItem(POMO_KEY, JSON.stringify({
+        mode, running, endAt: running ? endAt : null, pausedSeconds: seconds, completed
+      }));
+    } catch {}
+  }, [mode, running, endAt, seconds, completed]);
 
-  const toggle = () => setRunning(r => !r);
+  // Hết giờ khi đang ở trang này
+  const finishRef = React.useRef(false);
+  const finishSession = () => {
+    if (finishRef.current) return;
+    finishRef.current = true;
+    const res = pomoComplete(modeRef.current, endAtRef.current);
+    if (!res) {
+      // đã được xử lý ở nơi khác -> đồng bộ lại từ bộ nhớ
+      const s = pomoLoadState();
+      setMode(s.mode); setSeconds(s.seconds); setRunning(s.running); setEndAt(s.endAt);
+    } else {
+      setSessions(res.sessions);
+      setTotalMins(res.totalMins);
+      setMode(res.nextMode);
+      setSeconds(pomoFull(res.nextMode));
+      setCompleted(res.completed);
+      if (res.completed) setSuggestion(pickSuggestion());
+      setRunning(false);
+      setEndAt(null);
+    }
+    setTimeout(() => { finishRef.current = false; }, 0);
+  };
+
+  // Vòng lặp đếm: tính theo mốc giờ thực nên không bị trễ khi tab bị throttle
+  useEffect(() => {
+    if (!running || !endAt) return;
+    const check = () => {
+      const remaining = Math.ceil((endAt - Date.now()) / 1000);
+      if (remaining <= 0) finishSession();
+      else setSeconds(remaining);
+    };
+    check();
+    const id = setInterval(check, 500);
+    return () => clearInterval(id);
+  }, [running, endAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggle = () => {
+    if (running) {
+      const remaining = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
+      setSeconds(remaining);
+      setRunning(false);
+      setEndAt(null);
+    } else {
+      // xin quyền thông báo trình duyệt (chỉ hỏi 1 lần, khi người dùng chủ động bấm Bắt đầu)
+      try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch {}
+      setEndAt(Date.now() + seconds * 1000);
+      setRunning(true);
+    }
+  };
   const reset = () => {
     setRunning(false);
-    setSeconds(mode === "work" ? WORK_MIN*60 : BREAK_MIN*60);
+    setEndAt(null);
+    setSeconds(fullSecs(mode));
     setCompleted(false);
   };
   const switchMode = (m) => {
     setRunning(false);
+    setEndAt(null);
     setMode(m);
-    setSeconds(m==="work" ? WORK_MIN*60 : BREAK_MIN*60);
+    setSeconds(fullSecs(m));
     setCompleted(false);
   };
 
@@ -22752,584 +22930,351 @@ const MINI_LESSONS = [
 ];
 
 // ════════════════════════════════════════════════════════════════
-// NEWS PAGE
+// DATA & PAGE: TIN TỨC VIDEO NHẬT BẢN (PHÁT CHUẨN PLAYLIST / LIVE)
 // ════════════════════════════════════════════════════════════════
+
+const NEWS_CHANNELS = [
+  {
+    id: "ntv",
+    name: "日テレNEWS (Nippon TV)",
+    subName: "Bản tin mới nhất & Trực tiếp",
+    badge: "NTV NEWS",
+    badgeColor: "#EF4444",
+    avatar: "🔴",
+    desc: "Tin tức thời sự 24/7 từ Đài truyền hình NTV (NNN).",
+    embedUrl: "https://www.youtube.com/embed/videoseries?list=UUuTAXTexrhetbOe3zgskJBQ",
+    liveUrl: "https://www.youtube.com/@ntv_news/live",
+    youtubeUrl: "https://www.youtube.com/@ntv_news"
+  },
+  {
+    id: "tbs",
+    name: "TBS NEWS DIG (JNN)",
+    subName: "Thời sự chuyên sâu JNN",
+    badge: "TBS NEWS",
+    badgeColor: "#F59E0B",
+    avatar: "📺",
+    desc: "Hệ thống tin tức thời sự, phóng sự xã hội và dự báo từ TBS.",
+    embedUrl: "https://www.youtube.com/embed/videoseries?list=UU6AG81pAkf6Lbi_1VC5NmPA",
+    liveUrl: "https://www.youtube.com/@tbsnewsdig/live",
+    youtubeUrl: "https://www.youtube.com/@tbsnewsdig"
+  }
+];
+
 function NewsPage() {
-    const t = useT();
-const CC = useColors();
+  const t = useT();
+  const CC = useColors();
   const [dark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640;
+  const [selectedChannel, setSelectedChannel] = useState(NEWS_CHANNELS[0].id);
 
-  const [selId, setSelId]       = useState(null);
-  const [phase, setPhase]       = useState("read"); // "read"|"vocab"|"quiz"
-  const [showFuri, setShowFuri] = useState(false);
-  const [showVn, setShowVn]     = useState(true);
-  const [popup, setPopup]       = useState(null); // {word, x, y}
-  const [quizAns, setQuizAns]   = useState({});
-  const [quizDone, setQuizDone] = useState(false);
-  const [vocabFlipped, setVocabFlipped] = useState({});
-  const [playing, setPlaying]   = useState(false);
-  const [levelFilter, setLevelFilter] = useState("all");
-  const [savedWords, setSavedWords]   = useState(() => {
-    try { return JSON.parse(localStorage.getItem("sp_saved_news_words")||"[]"); } catch { return []; }
-  });
+  const channel = NEWS_CHANNELS.find(c => c.id === selectedChannel) || NEWS_CHANNELS[0];
+  const bgCard = dark ? "rgba(30,41,59,0.95)" : "#FFFFFF";
 
-  const articles = levelFilter==="all" ? NEWS_ARTICLES : NEWS_ARTICLES.filter(a=>a.level===levelFilter);
-  const article  = NEWS_ARTICLES.find(a=>a.id===selId);
-
-  const playArticle = () => {
-    if (!window.speechSynthesis||playing||!article) return;
-    window.speechSynthesis.cancel();
-    const txt = article.body.map(s=>s.jp).join("。");
-    const u = new SpeechSynthesisUtterance(txt);
-    u.lang="ja-JP"; u.rate=0.78;
-    u.onstart=()=>setPlaying(true);
-    u.onend=()=>setPlaying(false);
-    window.speechSynthesis.speak(u);
-  };
-  const playSentence = (jp) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(jp);
-    u.lang="ja-JP"; u.rate=0.78;
-    window.speechSynthesis.speak(u);
-  };
-
-  const saveWord = (w) => {
-    const updated = savedWords.includes(w) ? savedWords.filter(x=>x!==w) : [...savedWords, w];
-    setSavedWords(updated);
-    localStorage.setItem("sp_saved_news_words", JSON.stringify(updated));
-  };
-
-  const bgCard = dark?"rgba(30,41,59,0.95)":"#FFFFFF";
-  const CCOLORS = {生活:"#2563EB",食文化:"#D97706",科学:"#059669",文化:"#7C3AED",社会:"#DC2626"};
-
-  // Article list view
-  if (!article) return (
-    <div style={{ maxWidth:900, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
-      <div style={{ background:"linear-gradient(135deg,#0C4A6E,#0369A1,#0EA5E9)", borderRadius:24, padding:isMob?"20px":"28px 36px", color:"white", marginBottom:24, position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", top:-20, right:-10, fontSize:120, opacity:0.07 }}>📰</div>
-        <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>NEWS · TIN TỨC</div>
-        <div style={{ fontSize:isMob?22:28, fontWeight:900, marginBottom:6 }}>{"📰 Học Qua Tin Tức"}</div>
-        <div style={{ fontSize:13, opacity:0.85 }}>Tin tức tiếng Nhật · Furigana · Bấm từ xem nghĩa · Quiz đọc hiểu</div>
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: isMob ? "14px 10px" : "32px 24px", fontFamily: "'Nunito',sans-serif" }}>
+      {/* Banner */}
+      <div style={{
+        background: "linear-gradient(135deg,#0C4A6E,#0369A1,#0284C7)",
+        borderRadius: 24, padding: isMob ? "20px" : "28px 36px",
+        color: "white", marginBottom: 24, position: "relative", overflow: "hidden"
+      }}>
+        <div style={{ position: "absolute", top: -20, right: -10, fontSize: 120, opacity: 0.08 }}>📺</div>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, opacity: 0.85, marginBottom: 4 }}>
+          JAPANESE NEWS · BẢN TIN TRỰC TIẾP
+        </div>
+        <div style={{ fontSize: isMob ? 22 : 28, fontWeight: 900, marginBottom: 6 }}>
+          📺 Video Tin Tức: 日テレNEWS &amp; TBS NEWS DIG
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.9, maxWidth: 640, lineHeight: 1.6 }}>
+          Xem các bản tin mới nhất tự động cập nhật liên tục từ các đài truyền hình hàng đầu Nhật Bản ngay trên web.
+        </div>
       </div>
 
-      {/* Level filter */}
-      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-        {["all","N5","N4","N3"].map(lv=>(
-          <button key={lv} onClick={()=>setLevelFilter(lv)}
-            style={{ padding:"8px 18px", borderRadius:20,
-              border:`2px solid ${levelFilter===lv?(lv==="all"?"#0EA5E9":LEVEL_COLOR[lv]):"transparent"}`,
-              background:levelFilter===lv?(lv==="all"?"rgba(14,165,233,0.15)":LEVEL_COLOR[lv]+"18"):(dark?"rgba(30,41,59,0.6)":"rgba(241,245,249,0.9)"),
-              color:levelFilter===lv?(lv==="all"?"#0EA5E9":LEVEL_COLOR[lv]):CC.muted,
-              fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-            {lv==="all"?"Tất cả":lv}
-          </button>
-        ))}
-      </div>
-
-      {/* Article grid */}
-      <div style={{ display:"grid", gridTemplateColumns:isMob?"1fr":w<900?"repeat(2,1fr)":"repeat(3,1fr)", gap:16 }}>
-        {articles.map(a => {
-          const cc = CCOLORS[a.category]||"#0EA5E9";
+      {/* Channel selector tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", paddingBottom: 4 }}>
+        {NEWS_CHANNELS.map(ch => {
+          const active = ch.id === selectedChannel;
           return (
-            <div key={a.id} onClick={()=>{setSelId(a.id);setPhase("read");setQuizAns({});setQuizDone({});setVocabFlipped({});}}
-              style={{ background:bgCard, borderRadius:20, padding:"20px", cursor:"pointer",
-                border:`1px solid ${dark?"rgba(14,165,233,0.15)":"rgba(14,165,233,0.12)"}`,
-                boxShadow:dark?"0 4px 16px rgba(0,0,0,0.25)":"0 4px 16px rgba(14,165,233,0.07)",
-                transition:"transform 0.18s, box-shadow 0.18s" }}
-              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow=dark?"0 8px 28px rgba(0,0,0,0.4)":"0 8px 28px rgba(14,165,233,0.15)";}}
-              onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                <span style={{ fontSize:28 }}>{a.emoji}</span>
-                <div style={{ display:"flex", gap:6 }}>
-                  <span style={{ fontSize:10, background:cc+"18", color:cc, padding:"3px 9px", borderRadius:20, fontWeight:800 }}>{a.categoryVn}</span>
-                  <span style={{ fontSize:10, background:LEVEL_COLOR[a.level]+"18", color:LEVEL_COLOR[a.level], padding:"3px 9px", borderRadius:20, fontWeight:800 }}>{a.level}</span>
-                </div>
-              </div>
-              <div style={{ fontSize:16, fontWeight:900, color:dark?"#E2E8F0":CC.text, fontFamily:"'Noto Sans JP',sans-serif", marginBottom:4 }}>{a.title}</div>
-              <div style={{ fontSize:12, color:CC.muted, marginBottom:10 }}>{a.titleVn}</div>
-              <div style={{ fontSize:12, color:CC.muted, lineHeight:1.6 }}>
-                {a.body[0].vn.slice(0,60)}...
-              </div>
-              <div style={{ marginTop:12, display:"flex", gap:6 }}>
-                <span style={{ fontSize:10, background:dark?"rgba(30,41,59,0.8)":"rgba(241,245,249,0.9)", color:CC.muted, padding:"3px 9px", borderRadius:20 }}>📖 {a.body.length} câu</span>
-                <span style={{ fontSize:10, background:dark?"rgba(30,41,59,0.8)":"rgba(241,245,249,0.9)", color:CC.muted, padding:"3px 9px", borderRadius:20 }}>📝 {a.quiz.length} quiz</span>
-              </div>
-            </div>
+            <button key={ch.id} onClick={() => setSelectedChannel(ch.id)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: isMob ? "9px 14px" : "10px 20px", borderRadius: 16,
+                border: active ? `2px solid ${ch.badgeColor}` : `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+                background: active ? (dark ? `${ch.badgeColor}22` : `${ch.badgeColor}12`) : (dark ? "rgba(30,41,59,0.6)" : "white"),
+                color: active ? (dark ? "#F8FAFC" : ch.badgeColor) : CC.muted,
+                fontWeight: active ? 800 : 700, fontSize: isMob ? 12.5 : 14,
+                cursor: "pointer", whiteSpace: "nowrap"
+              }}>
+              <span>{ch.avatar}</span>
+              <span>{ch.name.split(" ")[0]}</span>
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 8,
+                background: ch.badgeColor, color: "white"
+              }}>{ch.badge}</span>
+            </button>
           );
         })}
       </div>
-    </div>
-  );
 
-  // Article detail view
-  const cc = CCOLORS[article.category]||"#0EA5E9";
-  const quizScore = article.quiz.filter((q,i)=>quizAns[i]===q.ans).length;
+      {/* Main Video Box */}
+      <div style={{
+        background: bgCard, borderRadius: 24, padding: isMob ? 14 : 22,
+        border: dark ? "1.5px solid rgba(56,189,248,0.2)" : "1.5px solid rgba(2,132,199,0.15)",
+        boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(2,132,199,0.08)",
+        marginBottom: 24
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 26 }}>{channel.avatar}</span>
+            <div>
+              <div style={{ fontSize: isMob ? 15 : 18, fontWeight: 900, color: dark ? "#F8FAFC" : CC.text }}>
+                {channel.name}
+              </div>
+              <div style={{ fontSize: 12, color: CC.muted }}>{channel.desc}</div>
+            </div>
+          </div>
 
-  return (
-    <div style={{ maxWidth:780, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}
-      onClick={()=>popup&&setPopup(null)}>
-      {/* Back + phase tabs */}
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18, flexWrap:"wrap" }}>
-        <button onClick={()=>setSelId(null)}
-          style={{ background:"none",border:"none",color:cc,cursor:"pointer",fontSize:13,fontWeight:700,padding:0,display:"flex",alignItems:"center",gap:4 }}>
-          {"← Tin tức"}
-        </button>
-        <div style={{ flex:1 }}/>
-        {[{id:"read",l:"📖 Đọc"},{id:"vocab",l:"📚 Từ vựng"},{id:"quiz",l:"📝 Quiz"}].map(tb=>(
-          <button key={tb.id} onClick={()=>setPhase(tb.id)}
-            style={{ padding:"7px 16px", borderRadius:20, border:"none",
-              background:phase===t.id?cc:"transparent",
-              color:phase===t.id?"white":CC.muted,
-              fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif",
-              boxShadow:phase===t.id?`0 3px 12px ${cc}44`:"none" }}>
-            {t.l}
-          </button>
-        ))}
+          <div style={{ display: "flex", gap: 8 }}>
+            <a href={channel.liveUrl} target="_blank" rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 16px", borderRadius: 12,
+                background: "#EF4444", color: "white",
+                fontSize: 12.5, fontWeight: 800, textDecoration: "none",
+                boxShadow: "0 4px 14px rgba(239,68,68,0.4)"
+              }}>
+              <span>🔴</span> Mở Live Trực Tiếp ↗
+            </a>
+            <a href={channel.youtubeUrl} target="_blank" rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "8px 16px", borderRadius: 12,
+                background: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                color: dark ? "#E2E8F0" : CC.text,
+                fontSize: 12.5, fontWeight: 700, textDecoration: "none"
+              }}>
+              Kênh YouTube ↗
+            </a>
+          </div>
+        </div>
+
+        {/* Video Player Playing Playlist Directly On Web */}
+        <div style={{
+          position: "relative", width: "100%", paddingBottom: "56.25%",
+          borderRadius: 16, overflow: "hidden", background: "#000"
+        }}>
+          <iframe
+            key={channel.id}
+            src={channel.embedUrl}
+            title={channel.name}
+            style={{
+              position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none"
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, marginTop: 12,
+          padding: "10px 14px", borderRadius: 12,
+          background: dark ? "rgba(56,189,248,0.08)" : "rgba(2,132,199,0.06)",
+          fontSize: 12, color: dark ? "#BAE6FD" : "#0369A1"
+        }}>
+          <span>▶</span>
+          <span>Khung phát trên đang phát danh sách video thời sự cập nhật tự động của đài. Bấm nút đỏ <strong>"Mở Live Trực Tiếp ↗"</strong> nếu muốn xem phiên live thời sự 24/7.</span>
+        </div>
       </div>
-
-      {/* Article header */}
-      <div style={{ background:`linear-gradient(135deg,${cc}cc,${cc}99)`, borderRadius:20, padding:isMob?"18px":"22px 28px", color:"white", marginBottom:20 }}>
-        <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-          <span style={{ fontSize:10, background:"rgba(255,255,255,0.22)", padding:"3px 10px", borderRadius:20, fontWeight:800 }}>{article.categoryVn}</span>
-          <span style={{ fontSize:10, background:"rgba(255,255,255,0.22)", padding:"3px 10px", borderRadius:20, fontWeight:800 }}>{article.level}</span>
-        </div>
-        <div style={{ fontSize:isMob?18:22, fontWeight:900, fontFamily:"'Noto Sans JP',sans-serif", marginBottom:4 }}>{article.title}</div>
-        <div style={{ fontSize:13, opacity:0.9 }}>{article.titleVn}</div>
-      </div>
-
-      {/* READ PHASE */}
-      {phase==="read" && (
-        <div>
-          {/* Controls */}
-          <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-            <button onClick={()=>setShowFuri(v=>!v)}
-              style={{ padding:"7px 14px", borderRadius:20, border:`1.5px solid ${showFuri?cc:"rgba(148,163,184,0.3)"}`,
-                background:showFuri?cc+"14":"transparent", color:showFuri?cc:CC.muted,
-                fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              {`あ ${showFuri?"Ẩn":"Hiện"} furigana`}
-            </button>
-            <button onClick={()=>setShowVn(v=>!v)}
-              style={{ padding:"7px 14px", borderRadius:20, border:`1.5px solid ${showVn?cc:"rgba(148,163,184,0.3)"}`,
-                background:showVn?cc+"14":"transparent", color:showVn?cc:CC.muted,
-                fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              {`🇻🇳 ${showVn?"Ẩn":"Hiện"} dịch`}
-            </button>
-            <button onClick={playArticle} disabled={playing}
-              style={{ padding:"7px 14px", borderRadius:20, border:`1.5px solid ${cc}55`,
-                background:playing?cc+"20":"transparent", color:cc,
-                fontSize:12, fontWeight:700, cursor:playing?"default":"pointer", fontFamily:"'Nunito',sans-serif",
-                marginLeft:"auto" }}>
-              {playing?"🔊 Đang đọc...":"▶ Phát toàn bộ"}
-            </button>
-          </div>
-
-          {/* Article body */}
-          <div style={{ background:bgCard, borderRadius:20, padding:isMob?"18px":"26px", marginBottom:16,
-            border:`1px solid ${dark?cc+"22":cc+"14"}`, position:"relative" }}>
-            {article.body.map((s,si)=>(
-              <div key={si} style={{ marginBottom:22, paddingBottom:22, borderBottom:si<article.body.length-1?`1px solid ${dark?"rgba(148,163,184,0.1)":"rgba(148,163,184,0.12)"}`:""  }}>
-                {/* Furigana row */}
-                {showFuri && (
-                  <div style={{ fontSize:11, color:CC.muted, fontFamily:"'Noto Sans JP',sans-serif", marginBottom:3, lineHeight:1.8 }}>
-                    {s.furi}
-                  </div>
-                )}
-                {/* Japanese text + per-word popup */}
-                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <div style={{ fontSize:isMob?17:19, fontFamily:"'Noto Sans JP',sans-serif", color:dark?"#E2E8F0":CC.text, lineHeight:1.9, flex:1 }}>
-                    {s.words ? s.words.reduce((acc, wObj, wi) => {
-                      // Split text around known words and highlight them
-                      const parts = [];
-                      let remaining = s.jp;
-                      s.words.forEach((wo,wii) => {
-                        const idx = remaining.indexOf(wo.w);
-                        if (idx>=0) {
-                          if (idx>0) parts.push({type:"text",t:remaining.slice(0,idx)});
-                          parts.push({type:"word",t:wo.w,wobj:wo});
-                          remaining = remaining.slice(idx+wo.w.length);
-                        }
-                      });
-                      if (remaining) parts.push({type:"text",t:remaining});
-                      return parts;
-                    }, []).map((p,pi)=>
-                      p.type==="word" ? (
-                        <span key={pi}
-                          onClick={e=>{e.stopPropagation();setPopup(p=>p?.t===p.t?null:{t:p.t,wobj:p.wobj,si});}}
-                          style={{ cursor:"pointer", borderBottom:`2px solid ${cc}88`, color:cc, fontWeight:700, position:"relative",
-                            background: popup?.t===p.t&&popup?.si===si?cc+"18":"transparent",
-                            borderRadius:4, padding:"0 2px" }}>
-                          {p.t}
-                        </span>
-                      ) : (
-                        <span key={pi}>{p.t}</span>
-                      )
-                    ) : s.jp}
-                  </div>
-                  {/* Per-sentence audio */}
-                  <button onClick={e=>{e.stopPropagation();playSentence(s.jp);}}
-                    style={{ flexShrink:0, width:28, height:28, borderRadius:"50%", border:`1px solid ${cc}44`,
-                      background:"transparent", color:cc, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    ▶
-                  </button>
-                </div>
-                {showVn && <div style={{ fontSize:12, color:CC.muted, marginTop:4 }}>{s.vn}</div>}
-              </div>
-            ))}
-
-            {/* Word popup */}
-            {popup && (
-              <div onClick={e=>e.stopPropagation()}
-                style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)",
-                  background:dark?"rgba(15,23,42,0.97)":"white",
-                  border:`2px solid ${cc}`,
-                  borderRadius:16, padding:"14px 20px", zIndex:999, minWidth:200, maxWidth:300,
-                  boxShadow:`0 8px 32px ${cc}44` }}>
-                <div style={{ fontSize:24, fontWeight:900, color:cc, fontFamily:"'Noto Sans JP',sans-serif", marginBottom:4 }}>{popup.wobj?.w||popup.t}</div>
-                {popup.wobj?.r && <div style={{ fontSize:13, color:CC.muted, marginBottom:4 }}>{popup.wobj.r}</div>}
-                {popup.wobj?.vn && <div style={{ fontSize:14, fontWeight:700, color:dark?"#E2E8F0":CC.text, marginBottom:10 }}>{popup.wobj.vn}</div>}
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={()=>{saveWord(popup.wobj?.w||popup.t);}}
-                    style={{ flex:1, padding:"7px", borderRadius:10, border:`1px solid ${cc}44`,
-                      background:savedWords.includes(popup.wobj?.w||popup.t)?cc:"transparent",
-                      color:savedWords.includes(popup.wobj?.w||popup.t)?"white":cc,
-                      fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-                    {savedWords.includes(popup.wobj?.w||popup.t)?"✓ Đã lưu":"+ Lưu từ"}
-                  </button>
-                  <button onClick={()=>setPopup(null)}
-                    style={{ width:34, height:34, borderRadius:10, border:`1px solid rgba(148,163,184,0.3)`,
-                      background:"transparent", color:CC.muted, cursor:"pointer", fontSize:16 }}>×</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Grammar note */}
-          {article.grammarNote && (
-            <div style={{ background:dark?"rgba(124,58,237,0.1)":"rgba(245,243,255,0.9)", border:"1.5px solid rgba(124,58,237,0.25)", borderRadius:14, padding:"14px 16px", marginBottom:16 }}>
-              <div style={{ fontSize:11, fontWeight:800, color:"#7C3AED", marginBottom:6 }}>📝 ĐIỂM NGỮ PHÁP</div>
-              <div style={{ fontSize:15, fontWeight:800, color:"#7C3AED", fontFamily:"'Noto Sans JP',sans-serif", marginBottom:4 }}>{article.grammarNote.pattern}</div>
-              <div style={{ fontSize:13, color:dark?"#DDD6FE":"#4C1D95", marginBottom:6 }}>{article.grammarNote.meaning}</div>
-              <div style={{ fontSize:13, color:CC.muted, fontFamily:"'Noto Sans JP',sans-serif", fontStyle:"italic" }}>例：{article.grammarNote.example}</div>
-            </div>
-          )}
-
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setPhase("vocab")}
-              style={{ flex:1, padding:"12px", borderRadius:14, border:`1.5px solid ${cc}44`,
-                background:"transparent", color:cc, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              📚 Luyện từ vựng →
-            </button>
-            <button onClick={()=>setPhase("quiz")}
-              style={{ flex:1, padding:"12px", borderRadius:14, border:"none",
-                background:`linear-gradient(135deg,${cc},${cc}cc)`, color:"white",
-                fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif",
-                boxShadow:`0 4px 16px ${cc}44` }}>
-              📝 Làm quiz →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* VOCAB PHASE */}
-      {phase==="vocab" && (
-        <div>
-          <div style={{ fontSize:13, fontWeight:800, color:CC.muted, marginBottom:14 }}>
-            BẤM CARD ĐỂ LẬT — Kiểm tra từ vựng bài đọc
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:`repeat(${isMob?1:2},1fr)`, gap:12, marginBottom:20 }}>
-            {article.words.map((v,i)=>{
-              const fl = vocabFlipped[i];
-              return (
-                <div key={i} onClick={()=>setVocabFlipped(s=>({...s,[i]:!s[i]}))}
-                  style={{ background:fl?(dark?`rgba(14,165,233,0.15)`:"rgba(240,249,255,0.95)"):bgCard,
-                    borderRadius:16, padding:"20px", cursor:"pointer", textAlign:"center", minHeight:90,
-                    border:`2px solid ${fl?cc:dark?"rgba(148,163,184,0.15)":"rgba(148,163,184,0.2)"}`,
-                    transition:"all 0.25s", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    boxShadow:fl?`0 4px 16px ${cc}22`:"none" }}>
-                  {!fl ? (
-                    <div style={{ fontSize:26, fontWeight:900, fontFamily:"'Noto Sans JP',sans-serif", color:cc }}>{v.jp}</div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize:13, color:CC.muted, marginBottom:3 }}>{v.r}</div>
-                      <div style={{ fontSize:16, fontWeight:800, color:dark?"#E2E8F0":CC.text }}>{v.vn}</div>
-                      <button onClick={e=>{e.stopPropagation();saveWord(v.jp);}}
-                        style={{ marginTop:8, padding:"4px 14px", borderRadius:20, border:`1px solid ${cc}44`,
-                          background:savedWords.includes(v.jp)?cc:"transparent",
-                          color:savedWords.includes(v.jp)?"white":cc, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-                        {savedWords.includes(v.jp)?"✓ Đã lưu":"+ Lưu Flashcard"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <button onClick={()=>setPhase("quiz")}
-            style={{ width:"100%", padding:"13px", borderRadius:14, border:"none",
-              background:`linear-gradient(135deg,${cc},${cc}bb)`, color:"white",
-              fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif",
-              boxShadow:`0 4px 20px ${cc}44` }}>
-            📝 Làm quiz hiểu bài →
-          </button>
-        </div>
-      )}
-
-      {/* QUIZ PHASE */}
-      {phase==="quiz" && (
-        <div>
-          {article.quiz.map((q,i)=>(
-            <div key={i} style={{ background:bgCard, borderRadius:16, padding:"18px", marginBottom:12,
-              border:`1px solid ${dark?cc+"22":cc+"14"}` }}>
-              <div style={{ fontSize:14, fontWeight:700, color:dark?"#E2E8F0":CC.text, marginBottom:12,
-                fontFamily:"'Noto Sans JP',sans-serif" }}>Q{i+1}. {q.q}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {q.opts.map((opt,j)=>{
-                  const chosen=quizAns[i]===j, correct=j===q.ans, show=quizDone[i]!=null;
-                  return (
-                    <button key={j} onClick={()=>{ if(!quizDone[i]) { setQuizAns(a=>({...a,[i]:j})); setQuizDone(d=>({...d,[i]:true})); } }}
-                      style={{ padding:"10px 14px", borderRadius:10, textAlign:"left", cursor:quizDone[i]?"default":"pointer",
-                        fontFamily:"'Noto Sans JP',sans-serif", fontSize:13, fontWeight:chosen?700:400,
-                        border:`1.5px solid ${show&&correct?"#10B981":show&&chosen&&!correct?"#EF4444":chosen?cc+"66":dark?"rgba(148,163,184,0.2)":"rgba(148,163,184,0.15)"}`,
-                        background:show&&correct?"rgba(16,185,129,0.1)":show&&chosen&&!correct?"rgba(239,68,68,0.08)":chosen?cc+"0f":"transparent",
-                        color:dark?"#E2E8F0":CC.text }}>
-                      {show&&correct?"✅ ":show&&chosen&&!correct?"❌ ":""}{opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-          {Object.keys(quizDone).length>=article.quiz.length && (
-            <div style={{ background:bgCard, borderRadius:16, padding:"16px", textAlign:"center",
-              border:`2px solid ${quizScore===article.quiz.length?"rgba(16,185,129,0.4)":"rgba(245,158,11,0.4)"}`,
-              marginBottom:12 }}>
-              <div style={{ fontSize:24 }}>{quizScore===article.quiz.length?"🎉":"👍"}</div>
-              <div style={{ fontSize:18, fontWeight:900, color:quizScore===article.quiz.length?"#10B981":"#F59E0B" }}>
-                {quizScore}/{article.quiz.length} câu đúng
-              </div>
-            </div>
-          )}
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>{setPhase("read");setQuizAns({});setQuizDone({});}}
-              style={{ flex:1, padding:"11px", borderRadius:12, border:`1px solid ${cc}44`, background:"transparent", color:cc, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              ← Đọc lại
-            </button>
-            <button onClick={()=>setSelId(null)}
-              style={{ flex:1, padding:"11px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${cc},${cc}bb)`, color:"white", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              {"Bài tiếp →"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════════
-// CULTURE PAGE
+// DATA & PAGE: CULTURE VIDEOS (XEM ĐƯỢC 100% TRÊN WEB)
 // ════════════════════════════════════════════════════════════════
+
+const CULTURE_VIDEOS = [
+  {
+    id: "v1",
+    title: "Tết Nhật Bản (Oshogatsu) – tiếng Nhật cho người học",
+    titleJp: "お正月の日本語 · Phong tục đón năm mới",
+    videoId: "_jHMHFCy5Ig",
+    topic: "Lễ hội & Phong tục",
+    emoji: "🎍",
+    color: "#EF4444",
+    desc: "Video tiếng Nhật chậm, dễ nghe, giới thiệu từ vựng và phong tục đón năm mới của người Nhật.",
+  },
+  {
+    id: "v2",
+    title: "Washoku là gì? Ẩm thực Nhật được UNESCO ghi danh",
+    titleJp: "ユネスコに登録された和食とは？ · Văn hóa ẩm thực",
+    videoId: "k0LHhYzPnh8",
+    topic: "Ẩm thực truyền thống",
+    emoji: "🍱",
+    color: "#F59E0B",
+    desc: "Bài giảng ngắn bằng tiếng Nhật về đặc trưng của 和食 và lý do được UNESCO công nhận là di sản văn hóa phi vật thể.",
+  },
+  {
+    id: "v3",
+    title: "Washoku no Kokoroe – Tâm hồn và thẩm mỹ Nhật Bản",
+    titleJp: "和食のこころえ ～日本の心と美学 · Tinh thần ẩm thực Nhật",
+    videoId: "P_CLYCwfbwE",
+    topic: "Ẩm thực & Triết lý",
+    emoji: "🍣",
+    color: "#10B981",
+    desc: "Phim tài liệu (bản đầy đủ, hỗ trợ bởi Cục Văn hóa Nhật) khám phá ẩm thực Nhật qua góc nhìn tinh thần, lịch sử và địa lý.",
+  },
+  {
+    id: "v4",
+    title: "Trà đạo Nhật Bản (Sadō)",
+    titleJp: "茶道 · Nghi thức và tinh thần 和敬清寂",
+    videoId: "Ty2HWDWZgMU",
+    topic: "Nghệ thuật truyền thống",
+    emoji: "🍵",
+    color: "#84CC16",
+    desc: "Giới thiệu cách pha trà, cách thưởng trà và các quy tắc ứng xử trong trà thất, thuyết minh bằng tiếng Nhật.",
+  },
+  {
+    id: "v5",
+    title: "Nhập môn Kabuki",
+    titleJp: "はじめての歌舞伎 · Sân khấu truyền thống",
+    videoId: "yjDLHYmCWh8",
+    topic: "Nghệ thuật biểu diễn",
+    emoji: "🎭",
+    color: "#8B5CF6",
+    desc: "Bản tóm lược chương trình giáo dục của Cục Văn hóa, do diễn viên Kabuki Kataoka Ainosuke dẫn, có phụ đề tiếng Nhật.",
+  },
+  {
+    id: "v6",
+    title: "Múa truyền thống Nhật Bản (Nihon Buyō)",
+    titleJp: "日本舞踊 ～美しい所作の芸術～ · Nghệ thuật cử chỉ",
+    videoId: "4IB6YoIg-gI",
+    topic: "Nghệ thuật biểu diễn",
+    emoji: "💃",
+    color: "#3B82F6",
+    desc: "Tìm hiểu nghệ thuật múa kể chuyện bằng động tác, hình thành từ khoảng 400 năm trước và truyền nghề theo quan hệ thầy – trò.",
+  }
+];
+
 function CulturePage() {
-    const t = useT();
-const CC = useColors();
+  const t = useT();
+  const CC = useColors();
   const [dark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640;
-  const [selId, setSelId]   = useState(null);
-  const [phase, setPhase]   = useState("learn"); // "learn"|"quiz"
-  const [quizAns, setQuizAns] = useState({});
-  const [quizDone, setQuizDone] = useState({});
-  const [playing, setPlaying]  = useState(null);
+  const [activeVideo, setActiveVideo] = useState(CULTURE_VIDEOS[0]);
 
-  const lesson = CULTURE_LESSONS.find(c=>c.id===selId);
-  const bgCard = dark?"rgba(30,41,59,0.95)":"#FFFFFF";
+  const bgCard = dark ? "rgba(30,41,59,0.95)" : "#FFFFFF";
 
-  const playPhrase = (jp) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(jp);
-    u.lang="ja-JP"; u.rate=0.78;
-    u.onstart=()=>setPlaying(jp);
-    u.onend=()=>setPlaying(null);
-    window.speechSynthesis.speak(u);
-  };
-
-  const CAT_COLORS = {挨拶:"#DC2626",食事:"#D97706",学校:"#2563EB",仕事:"#7C3AED"};
-
-  if (!lesson) return (
-    <div style={{ maxWidth:900, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
-      <div style={{ background:"linear-gradient(135deg,#1C1917,#78350F,#B45309)", borderRadius:24, padding:isMob?"20px":"28px 36px", color:"white", marginBottom:24, position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", top:-20, right:-10, fontSize:120, opacity:0.07 }}>🏯</div>
-        <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>CULTURE · VĂN HÓA</div>
-        <div style={{ fontSize:isMob?22:28, fontWeight:900, marginBottom:6 }}>{"🏯 Văn Hóa Nhật Bản"}</div>
-        <div style={{ fontSize:13, opacity:0.85 }}>Chào hỏi · Ăn uống · Học đường · Công sở · Quiz sau bài học</div>
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto", padding: isMob ? "14px 10px" : "32px 24px", fontFamily: "'Nunito',sans-serif" }}>
+      {/* Banner */}
+      <div style={{
+        background: "linear-gradient(135deg,#78350F,#9A3412,#C2410C)",
+        borderRadius: 24, padding: isMob ? "20px" : "28px 36px",
+        color: "white", marginBottom: 24, position: "relative", overflow: "hidden"
+      }}>
+        <div style={{ position: "absolute", top: -20, right: -10, fontSize: 120, opacity: 0.08 }}>🏯</div>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, opacity: 0.85, marginBottom: 4 }}>
+          CULTURE &amp; TRADITION · VIDEO VĂN HÓA
+        </div>
+        <div style={{ fontSize: isMob ? 22 : 28, fontWeight: 900, marginBottom: 6 }}>
+          🏯 Video Văn Hóa Nhật Bản (tiếng Nhật)
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.9, maxWidth: 640, lineHeight: 1.6 }}>
+          Xem video bằng tiếng Nhật ngay trên trang web về phong tục, ẩm thực và nghệ thuật truyền thống để vừa hiểu văn hóa vừa luyện nghe.
+        </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:isMob?"1fr":"repeat(2,1fr)", gap:16 }}>
-        {CULTURE_LESSONS.map(cl=>{
-          const cc = CAT_COLORS[cl.category]||"#B45309";
+
+      {/* Main Video Player Directly Embedded on Web */}
+      <div style={{
+        background: bgCard, borderRadius: 24, padding: isMob ? 14 : 22,
+        border: dark ? `1.5px solid ${activeVideo.color}35` : `1.5px solid ${activeVideo.color}25`,
+        boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.4)" : "0 8px 32px rgba(0,0,0,0.06)",
+        marginBottom: 28
+      }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <div>
+            <span style={{ fontSize: 11, background: `${activeVideo.color}18`, color: activeVideo.color, padding: "3px 10px", borderRadius: 20, fontWeight: 800, display: "inline-block", marginBottom: 6 }}>
+              {activeVideo.topic}
+            </span>
+            <div style={{ fontSize: isMob ? 17 : 21, fontWeight: 900, color: dark ? "#F8FAFC" : CC.text, marginBottom: 4 }}>
+              {activeVideo.emoji} {activeVideo.title}
+            </div>
+            <div style={{ fontSize: 13, color: activeVideo.color, fontWeight: 700 }}>
+              {activeVideo.titleJp}
+            </div>
+          </div>
+
+          <a href={`https://www.youtube.com/watch?v=${activeVideo.videoId}`} target="_blank" rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 16px", borderRadius: 12,
+              background: `${activeVideo.color}18`, color: activeVideo.color,
+              border: `1px solid ${activeVideo.color}40`,
+              fontWeight: 800, fontSize: 12.5, textDecoration: "none"
+            }}>
+            <span>↗</span> Mở ứng dụng YouTube
+          </a>
+        </div>
+
+        {/* Video Player Playing directly on the web */}
+        <div style={{
+          position: "relative", width: "100%", paddingBottom: "56.25%",
+          borderRadius: 16, overflow: "hidden", background: "#000",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
+        }}>
+          <iframe
+            key={activeVideo.id}
+            src={`https://www.youtube.com/embed/${activeVideo.videoId}?rel=0&hl=ja&cc_lang_pref=ja&cc_load_policy=1`}
+            title={activeVideo.title}
+            style={{
+              position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none"
+            }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+
+        <div style={{ marginTop: 14, fontSize: 13, color: dark ? "#CBD5E1" : CC.muted, lineHeight: 1.6 }}>
+          💡 {activeVideo.desc}
+        </div>
+      </div>
+
+      {/* Video Playlist Grid */}
+      <div style={{ fontSize: 15, fontWeight: 900, color: dark ? "#F8FAFC" : CC.text, marginBottom: 14 }}>
+        📚 Bấm chọn video khác (xem trực tiếp trên web):
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMob ? "1fr" : "repeat(2, 1fr)", gap: 14 }}>
+        {CULTURE_VIDEOS.map(v => {
+          const isSelected = v.id === activeVideo.id;
           return (
-            <div key={cl.id} onClick={()=>{setSelId(cl.id);setPhase("learn");setQuizAns({});setQuizDone({});}}
-              style={{ background:bgCard, borderRadius:20, padding:"22px", cursor:"pointer",
-                border:`1px solid ${dark?cc+"22":cc+"14"}`,
-                boxShadow:dark?"0 4px 16px rgba(0,0,0,0.25)":"0 4px 16px rgba(0,0,0,0.06)",
-                transition:"transform 0.18s" }}
-              onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"}
-              onMouseLeave={e=>e.currentTarget.style.transform=""}>
-              <div style={{ fontSize:36, marginBottom:10 }}>{cl.emoji}</div>
-              <div style={{ fontSize:11, background:cc+"18", color:cc, padding:"3px 10px", borderRadius:20, fontWeight:800, display:"inline-block", marginBottom:8 }}>{cl.categoryVn}</div>
-              <div style={{ fontSize:17, fontWeight:900, color:dark?"#E2E8F0":CC.text, fontFamily:"'Noto Sans JP',sans-serif", marginBottom:4 }}>{cl.title}</div>
-              <div style={{ fontSize:13, color:CC.muted, marginBottom:10 }}>{cl.titleVn}</div>
-              <div style={{ fontSize:12, color:CC.muted, lineHeight:1.6 }}>{cl.introVn}</div>
-              <div style={{ marginTop:12, fontSize:11, color:cc }}>📖 {cl.sections.length} phần · 📝 {cl.quiz.length} câu quiz</div>
+            <div key={v.id} onClick={() => setActiveVideo(v)}
+              style={{
+                background: bgCard, borderRadius: 18, padding: "16px 18px",
+                cursor: "pointer", transition: "all 0.18s ease",
+                border: isSelected ? `2px solid ${v.color}` : `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+                boxShadow: isSelected ? `0 6px 20px ${v.color}20` : "none"
+              }}
+              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.transform = "none"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 26 }}>{v.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: dark ? "#F1F5F9" : CC.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {v.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: v.color, fontWeight: 700 }}>{v.topic}</div>
+                </div>
+                {isSelected && <span style={{ color: v.color, fontWeight: 900, fontSize: 13 }}>▶ Đang phát</span>}
+              </div>
+              <div style={{ fontSize: 11.5, color: CC.muted, lineHeight: 1.5 }}>
+                {v.desc}
+              </div>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-
-  const cc = CAT_COLORS[lesson.category]||"#B45309";
-  const quizScore = lesson.quiz.filter((q,i)=>quizAns[i]===q.ans).length;
-
-  return (
-    <div style={{ maxWidth:760, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:18 }}>
-        <button onClick={()=>setSelId(null)}
-          style={{ background:"none",border:"none",color:cc,cursor:"pointer",fontSize:13,fontWeight:700,padding:0 }}>
-          {"← Văn hóa"}
-        </button>
-        <div style={{ flex:1 }}/>
-        {[{id:"learn",l:"📖 Học"},{id:"quiz",l:"📝 Quiz"}].map(tb=>(
-          <button key={tb.id} onClick={()=>setPhase(tb.id)}
-            style={{ padding:"7px 16px", borderRadius:20, border:"none",
-              background:phase===t.id?cc:"transparent",
-              color:phase===t.id?"white":CC.muted,
-              fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-            {t.l}
-          </button>
-        ))}
-      </div>
-
-      {/* Header */}
-      <div style={{ background:`linear-gradient(135deg,${cc}dd,${cc}99)`, borderRadius:20, padding:isMob?"18px":"24px 28px", color:"white", marginBottom:20 }}>
-        <div style={{ fontSize:36, marginBottom:8 }}>{lesson.emoji}</div>
-        <div style={{ fontSize:isMob?18:22, fontWeight:900, marginBottom:4 }}>{lesson.title}</div>
-        <div style={{ fontSize:13, opacity:0.9, marginBottom:8 }}>{lesson.titleVn}</div>
-        <div style={{ fontSize:12, opacity:0.85, lineHeight:1.6 }}>{lesson.introVn}</div>
-      </div>
-
-      {phase==="learn" && (
-        <div>
-          {lesson.sections.map((sec,i)=>(
-            <div key={i} style={{ background:bgCard, borderRadius:18, padding:"20px", marginBottom:14,
-              border:`1px solid ${dark?cc+"22":cc+"12"}` }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-                <span style={{ fontSize:28 }}>{sec.icon}</span>
-                <div>
-                  <div style={{ fontSize:14, fontWeight:900, color:cc }}>{sec.title}</div>
-                  <div style={{ fontSize:12, color:CC.muted }}>{sec.titleVn}</div>
-                </div>
-              </div>
-              <div style={{ fontSize:13, color:dark?"#E2E8F0":CC.text, lineHeight:1.8, marginBottom:8 }}>{sec.body}</div>
-              <div style={{ fontSize:13, color:CC.muted, lineHeight:1.7, marginBottom:8, fontStyle:"italic" }}>{sec.bodyVn}</div>
-              <div style={{ fontSize:11, background:cc+"14", color:cc, padding:"4px 12px", borderRadius:20, display:"inline-block", fontWeight:700 }}>
-                💡 {sec.example}
-              </div>
-            </div>
-          ))}
-
-          {/* Key phrases */}
-          <div style={{ background:bgCard, borderRadius:16, padding:"16px", marginBottom:16,
-            border:`1px solid ${dark?cc+"22":cc+"12"}` }}>
-            <div style={{ fontSize:12, fontWeight:800, color:cc, marginBottom:12 }}>🗣️ CÁC CÂU THƯỜNG DÙNG</div>
-            {lesson.phrases.map((p,i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:i<lesson.phrases.length-1?10:0,
-                padding:"10px 12px", background:dark?"rgba(15,23,42,0.4)":"rgba(248,250,252,0.9)", borderRadius:10 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:cc, fontFamily:"'Noto Sans JP',sans-serif" }}>{p.jp}</div>
-                  <div style={{ fontSize:11, color:CC.muted }}>{p.r}</div>
-                  <div style={{ fontSize:12, color:dark?"#E2E8F0":CC.text }}>{p.vn}</div>
-                </div>
-                <button onClick={()=>playPhrase(p.jp)}
-                  style={{ width:34, height:34, borderRadius:"50%", border:`1px solid ${cc}44`,
-                    background:playing===p.jp?cc:"transparent", color:playing===p.jp?"white":cc,
-                    cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  ▶
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Vocab */}
-          <div style={{ background:bgCard, borderRadius:16, padding:"16px", marginBottom:16,
-            border:`1px solid ${dark?cc+"22":cc+"12"}` }}>
-            <div style={{ fontSize:12, fontWeight:800, color:cc, marginBottom:10 }}>📖 TỪ VỰNG</div>
-            <div style={{ display:"grid", gridTemplateColumns:`repeat(${isMob?2:3},1fr)`, gap:8 }}>
-              {lesson.vocab.map((v,i)=>(
-                <div key={i} style={{ background:dark?cc+"10":cc+"09", borderRadius:10, padding:"10px 12px", textAlign:"center" }}>
-                  <div style={{ fontSize:17, fontWeight:900, color:cc, fontFamily:"'Noto Sans JP',sans-serif" }}>{v.jp}</div>
-                  <div style={{ fontSize:10, color:CC.muted }}>{v.r}</div>
-                  <div style={{ fontSize:11, fontWeight:700, color:dark?"#E2E8F0":CC.text, marginTop:2 }}>{v.vn}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button onClick={()=>setPhase("quiz")}
-            style={{ width:"100%", padding:"13px", borderRadius:14, border:"none", cursor:"pointer",
-              background:`linear-gradient(135deg,${cc},${cc}bb)`, color:"white",
-              fontSize:14, fontWeight:800, fontFamily:"'Nunito',sans-serif",
-              boxShadow:`0 4px 20px ${cc}44` }}>
-            📝 Làm quiz →
-          </button>
-        </div>
-      )}
-
-      {phase==="quiz" && (
-        <div>
-          {lesson.quiz.map((q,i)=>(
-            <div key={i} style={{ background:bgCard, borderRadius:16, padding:"18px", marginBottom:12,
-              border:`1px solid ${dark?cc+"22":cc+"14"}` }}>
-              <div style={{ fontSize:14, fontWeight:700, color:dark?"#E2E8F0":CC.text, marginBottom:12,
-                fontFamily:"'Noto Sans JP',sans-serif" }}>Q{i+1}. {q.q}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {q.opts.map((opt,j)=>{
-                  const chosen=quizAns[i]===j, correct=j===q.ans, show=quizDone[i]!=null;
-                  return (
-                    <button key={j} onClick={()=>{ if(!quizDone[i]){setQuizAns(a=>({...a,[i]:j}));setQuizDone(d=>({...d,[i]:true}));}}}
-                      style={{ padding:"10px 14px", borderRadius:10, textAlign:"left", cursor:quizDone[i]?"default":"pointer",
-                        fontFamily:"'Noto Sans JP',sans-serif", fontSize:13, fontWeight:chosen?700:400,
-                        border:`1.5px solid ${show&&correct?"#10B981":show&&chosen&&!correct?"#EF4444":chosen?cc+"66":dark?"rgba(148,163,184,0.2)":"rgba(148,163,184,0.15)"}`,
-                        background:show&&correct?"rgba(16,185,129,0.1)":show&&chosen&&!correct?"rgba(239,68,68,0.08)":chosen?cc+"0f":"transparent",
-                        color:dark?"#E2E8F0":CC.text }}>
-                      {show&&correct?"✅ ":show&&chosen&&!correct?"❌ ":""}{opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-          {Object.keys(quizDone).length>=lesson.quiz.length && (
-            <div style={{ background:bgCard, borderRadius:16, padding:"16px", textAlign:"center", marginBottom:12,
-              border:`2px solid ${quizScore===lesson.quiz.length?"rgba(16,185,129,0.4)":"rgba(245,158,11,0.4)"}` }}>
-              <div style={{ fontSize:24 }}>{quizScore===lesson.quiz.length?"🎉":"👍"}</div>
-              <div style={{ fontSize:18, fontWeight:900, color:quizScore===lesson.quiz.length?"#10B981":"#F59E0B" }}>
-                {quizScore}/{lesson.quiz.length} câu đúng
-              </div>
-            </div>
-          )}
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>{setPhase("learn");setQuizAns({});setQuizDone({});}}
-              style={{ flex:1, padding:"11px", borderRadius:12, border:`1px solid ${cc}44`, background:"transparent", color:cc, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              ← Xem lại
-            </button>
-            <button onClick={()=>setSelId(null)}
-              style={{ flex:1, padding:"11px", borderRadius:12, border:"none", background:`linear-gradient(135deg,${cc},${cc}bb)`, color:"white", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-              {"Bài tiếp →"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -24445,6 +24390,7 @@ export default function App(){
       color: dark ? "#E2E8F0" : "#0F172A",
     }}>
       <Nav page={page} setPage={navigate} streakCount={streak.streak} user={user} onLoginClick={()=>setShowLogin(true)}/>
+      <PomodoroWatcher page={page} setPage={navigate}/>
       {/* Theme transition mask */}
       <div className="theme-mask">
         {[0,1,2,3,4,5,6,7,8,9,10,11,12,11,10,9,8,7,6,5,4,3,2,1,0].map((v,i)=>(
