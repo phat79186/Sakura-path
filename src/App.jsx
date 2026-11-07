@@ -7,6 +7,10 @@ import React, {
 } from "react";
 import JLPTRealExam from "./JLPTRealExam";
 import EJURealExam from "./EJURealExam";
+import { EXAM_SECTIONS, LEVEL_DESC as JLPT_DATA_LEVEL_DESC } from "./jlptData";
+import { EJU_SUBJECTS as EJU_DATA_SUBJECTS } from "./ejuData";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 const MILESTONES = [
   {days:7,  msg:"Học rất đều đặn! 💪", emoji:"⭐"},
   {days:30, msg:"Chiến binh học tập! 🔥", emoji:"🏅"},
@@ -144,7 +148,7 @@ const T = {
     navScript:"Chữ Nhật", navHiragana:"Hiragana", navKatakana:"Katakana", navKanji:"Kanji", navRadical:"Bộ thủ",
     navStudy:"Học tập", navFlashcard:"Flashcard", navGrammar:"Ngữ pháp", navJlpt:"JLPT", navEju:"EJU",
     navSkill:"Kỹ năng", navSpeaking:"Nói", navListening:"Nghe", navReading:"Đọc", navDictation:"Chính tả",
-    navAI:"AI", navChat:"AI Chat", navAnalysis:"Phân tích",
+    navAI:"AI", navChat:"AI Chat", navAIAnswer:"AI giải đáp", navAnalysis:"Phân tích",
     navOther:"Khác", navGame:"Ghép câu", navStory:"Truyện", navNews:"Tin tức", navCulture:"Văn hóa",
     navMap:"Tiến trình", navAchieve:"Thành tích", navHeatmap:"Heatmap", navMini:"1 phút",
     navGroup:"Nhóm học", navTimer:"Timer", navImport:"Import", navPractice:"Luyện tập", navExplore:"Khám phá", navProgress:"Tiến độ", navData:"Nhập / Xuất dữ liệu",
@@ -239,7 +243,7 @@ const T = {
     navScript:"Japanese Script", navHiragana:"Hiragana", navKatakana:"Katakana", navKanji:"Kanji", navRadical:"Radicals",
     navStudy:"Study", navFlashcard:"Flashcard", navGrammar:"Grammar", navJlpt:"JLPT", navEju:"EJU",
     navSkill:"Skills", navSpeaking:"Speaking", navListening:"Listening", navReading:"Reading", navDictation:"Dictation",
-    navAI:"AI", navChat:"AI Chat", navAnalysis:"Analysis",
+    navAI:"AI", navChat:"AI Chat", navAIAnswer:"AI Tutor", navAnalysis:"Analysis",
     navOther:"More", navGame:"Build Sentence", navStory:"Stories", navNews:"News", navCulture:"Culture",
     navMap:"Progress", navAchieve:"Achievements", navHeatmap:"Heatmap", navMini:"1 min",
     navGroup:"Study Group", navTimer:"Timer", navImport:"Import", navPractice:"Practice", navExplore:"Explore", navProgress:"Tracking", navData:"Import / Export data",
@@ -1256,6 +1260,7 @@ function buildNavGroups(t) {
         { id: "jlpt", icon: "🎌", label: t.navJlpt },
         { id: "eju",  icon: "📋", label: t.navEju },
         { id: "chat", icon: "💬", label: t.navChat },
+        { id: "ai-answer", icon: "🎓", label: t.navAIAnswer },
         { id: "game", icon: "🎮", label: t.navGame }
       ]
     },
@@ -17593,8 +17598,7 @@ const CC = useColors();
       setTraceCorrectCount(0);
       setTraceOpacity(0.18);
     }
-    // useEffect [kanji, selectedIdx, traceMode, traceOpacity] will redraw automatically
-    // — do NOT call redrawCanvas() here, it would use stale kanji from closure
+    redrawCanvas();
   };
 
   const undoLast = () => {
@@ -20231,6 +20235,119 @@ const convAnalysisPrompt = `Bạn là giáo viên tiếng Nhật. Phân tích c�
 {"grammar":85,"vocab":80,"natural":75,"correction":null,"suggestion":"câu tự nhiên hơn nếu có","error":"giải thích lỗi ngắn bằng tiếng Việt nếu có","praise":"lời khen ngắn tiếng Việt"}
 grammar/vocab/natural: số 0-100. correction: câu đúng nếu có lỗi (null nếu đúng).
 Nếu học viên viết tiếng Việt/Anh/romaji thay vì tiếng Nhật: correction = câu tiếng Nhật tương ứng, error = "Hãy thử viết bằng tiếng Nhật nhé", điểm vẫn chấm theo ý họ muốn nói. Giữ mỗi trường dưới 120 ký tự.`;
+
+function AIAnswerText({ text }) {
+  const parts = String(text || "").split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^$\n]+?\$|\\\([^\n]+?\\\))/g);
+  return <>{parts.map((part, i) => {
+    const display = part.startsWith("$$") || part.startsWith("\\[");
+    const math = part.startsWith("$$") ? part.slice(2, -2)
+      : part.startsWith("\\[") ? part.slice(2, -2)
+      : part.startsWith("\\(") ? part.slice(2, -2)
+      : part.startsWith("$") ? part.slice(1, -1) : null;
+    if (math === null) return <React.Fragment key={i}>{part}</React.Fragment>;
+    return <span key={i} className={display ? "ai-math-display" : "ai-math-inline"}
+      dangerouslySetInnerHTML={{ __html: katex.renderToString(math, { displayMode: display, throwOnError: false, strict: "ignore", trust: false }) }} />;
+  })}</>;
+}
+
+function AIAnswerPage() {
+  const { dark, text, muted, bgCard, border } = useColors();
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadError, setUploadError] = useState("");
+  const endRef = useRef(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const examContextFor = (question) => {
+    const q = question.toLowerCase();
+    const wantsEju = /eju|eju|vật lý|hóa|sinh|toán|nhật bản|khoa học|数学|物理|化学|生物|日本と世界/.test(q);
+    const wantsJlpt = /jlpt|n[1-5]|ngữ pháp|hán tự|kanji|từ vựng|đọc hiểu|nghe hiểu|文法|漢字|語彙/.test(q);
+    const blocks = [];
+    if (wantsJlpt || !wantsEju) {
+      blocks.push(`JLPT FILE CONTEXT (src/jlptData.js): cấp độ ${JSON.stringify(JLPT_DATA_LEVEL_DESC)}. Cấu trúc đề: ${JSON.stringify(EXAM_SECTIONS.map(s => ({ section: s.title, questionTypes: s.mondais.map(m => m.title) })))}. Dùng để giải thích cấu trúc và dạng câu hỏi; không suy diễn nội dung hình/PDF chưa được trích xuất.`);
+    }
+    if (wantsEju || !wantsJlpt) {
+      blocks.push(`EJU FILE CONTEXT (src/ejuData.js): ${JSON.stringify(EJU_DATA_SUBJECTS.map(s => ({ subject: s.vn, japanese: s.jp, session: s.session, type: s.type, available: s.available, sections: s.sections?.map(sec => ({ title: sec.title, questions: sec.items?.map(item => ({ label: item.label, hint: item.hint })) })) })))}. Dùng môn thi, kỳ thi, cấu trúc phần và nhãn câu hỏi để trả lời. Không khẳng định đáp án/giải thích nội dung câu hỏi nếu nội dung đề không có trong ngữ cảnh.`);
+    }
+    return blocks.join("\n\n").slice(0, 12000);
+  };
+
+  const ask = async (question = input) => {
+    const q = question.trim() || (image ? "Hãy đọc và giải thích nội dung trong ảnh, gồm đề bài, đáp án nếu có, và cách giải từng bước." : "");
+    if ((!q && !image) || loading) return;
+    const imageForTurn = image;
+    const userContent = imageForTurn
+      ? [{ type: "text", text: q }, { type: "image", source: { type: "base64", media_type: imageForTurn.mime, data: imageForTurn.data } }]
+      : q;
+    setInput("");
+    setImage(null);
+    setUploadError("");
+    const history = [...messages, { role: "user", content: q, imageData: imageForTurn?.data, imageMime: imageForTurn?.mime }];
+    setMessages(history);
+    setLoading(true);
+    try {
+      const apiHistory = history.map((m, i) => ({
+        role: m.role,
+        content: m.role === "user" && m.imageData
+          ? [{ type: "text", text: m.content }, { type: "image", source: { type: "base64", media_type: m.imageMime, data: m.imageData } }]
+          : (i === history.length - 1 ? userContent : m.content),
+      }));
+      const answer = await convCallClaude({
+        system: `Bạn là gia sư thân thiện, giải đáp bằng tiếng Việt về ngữ pháp, Kanji, JLPT và EJU. Với ngữ pháp: nêu cấu trúc, cách dùng, sắc thái và ví dụ Nhật-Việt. Với Kanji: nêu âm On/Kun thông dụng, nghĩa, từ ghép và mẹo nhớ. Khi ngữ cảnh file không có thông tin cần thiết, nói rõ giới hạn và hỏi người học gửi câu hỏi/ảnh đề; không bịa.\n\n${examContextFor(q)}`,
+        messages: apiHistory,
+        max_tokens: 900,
+      });
+      setMessages([...history, { role: "assistant", content: answer }]);
+    } catch {
+      setMessages([...history, { role: "assistant", content: "Mình chưa kết nối được với AI. Bạn thử gửi lại nhé." }]);
+    } finally { setLoading(false); }
+  };
+  const suggestions = ["Giải thích mẫu ngữ pháp ～てしまう", "Kanji 食 có âm On/Kun và từ ghép nào?", "Phân biệt は và が bằng ví dụ"];
+  return <main style={{ maxWidth: 820, margin: "0 auto", padding: 24, color: text, width: "100%" }}>
+    <header style={{ padding: 24, borderRadius: 22, marginBottom: 18, color: "white", background: "linear-gradient(135deg,#312E81,#2563EB,#38BDF8)" }}>
+      <div style={{ fontSize: 12, letterSpacing: 2, fontWeight: 800 }}>AI · GIA SƯ TIẾNG NHẬT</div>
+      <h2 style={{ color: "white", margin: "8px 0" }}>🎓 AI giải đáp</h2>
+      <div>Hỏi về ngữ pháp, Kanji, cách dùng và ví dụ thực tế.</div>
+    </header>
+    <section aria-live="polite" style={{ background: bgCard, border: `1px solid ${border}`, borderRadius: 18, padding: 16, minHeight: 260, maxHeight: "55vh", overflowY: "auto", marginBottom: 14 }}>
+      {!messages.length && <div style={{ color: muted }}>Bạn muốn hỏi gì về tiếng Nhật?</div>}
+      {messages.map((m, i) => <div key={i} style={{ margin: "8px 0", marginLeft: m.role === "user" ? 48 : 0, padding: 12, borderRadius: 14, whiteSpace: "pre-wrap", lineHeight: 1.65, background: m.role === "user" ? (dark ? "#1E293B" : "#F1F5F9") : (dark ? "rgba(37,99,235,.15)" : "#EFF6FF") }}>{m.role === "assistant" ? <AIAnswerText text={m.content} /> : m.content}{m.imageData && <img src={`data:${m.imageMime};base64,${m.imageData}`} alt="Ảnh câu hỏi đã gửi" style={{ display: "block", maxWidth: "100%", maxHeight: 240, objectFit: "contain", marginTop: 8, borderRadius: 10 }} />}</div>)}
+      {loading && <div role="status" style={{ color: muted, padding: 8 }}>AI đang soạn câu trả lời…</div>}<div ref={endRef}/>
+    </section>
+    {!messages.length && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>{suggestions.map(s => <button key={s} onClick={() => ask(s)} style={{ padding: "8px 12px", borderRadius: 20, border: `1px solid ${border}`, background: bgCard, color: text, cursor: "pointer" }}>{s}</button>)}</div>}
+    <form onSubmit={e => { e.preventDefault(); ask(); }} style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <input value={input} onChange={e => setInput(e.target.value)} placeholder="Nhập câu hỏi về ngữ pháp hoặc Kanji…" aria-label="Câu hỏi cho AI" style={{ flex: 1, minWidth: 0, padding: 13 }} />
+      <label style={{ padding: "10px 12px", border: `1px solid ${border}`, borderRadius: 12, color: text, cursor: "pointer", fontWeight: 700 }}>🖼️ Ảnh
+        <input type="file" accept="image/*" aria-label="Chọn ảnh câu hỏi" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }} onChange={e => {
+          const file = e.target.files?.[0]; e.target.value = "";
+          if (!file) return;
+          if (!file.type.startsWith("image/")) { setUploadError("Vui lòng chọn tệp ảnh."); return; }
+          if (file.size > 5 * 1024 * 1024) { setUploadError("Ảnh cần nhỏ hơn 5 MB."); return; }
+          const reader = new FileReader();
+          reader.onload = () => { const dataUrl = String(reader.result || ""); const match = dataUrl.match(/^data:(image\/[\w.+-]+);base64,(.+)$/); if (match) { setImage({ mime: match[1], data: match[2] }); setUploadError(""); } else setUploadError("Không đọc được ảnh này."); };
+          reader.onerror = () => setUploadError("Không đọc được ảnh này.");
+          reader.readAsDataURL(file);
+        }} />
+      </label>
+      <button disabled={loading || (!input.trim() && !image)} style={{ padding: "0 18px", border: 0, borderRadius: 12, background: "#2563EB", color: "white", fontWeight: 800, cursor: "pointer" }}>Gửi</button>
+      {image && <div style={{ flexBasis: "100%", display: "flex", alignItems: "center", gap: 10, padding: 8, border: `1px solid ${border}`, borderRadius: 12, background: bgCard }}>
+        <button type="button" onClick={() => setImagePreview(`data:${image.mime};base64,${image.data}`)} aria-label="Phóng to ảnh đã chọn" style={{ padding: 0, border: 0, background: "none", cursor: "zoom-in", borderRadius: 8 }}>
+          <img src={`data:${image.mime};base64,${image.data}`} alt="Ảnh đang chờ gửi — bấm để phóng to" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: muted }}>Ảnh đã chọn</div>
+        <button type="button" onClick={() => setImage(null)} style={{ border: 0, background: "none", color: "#EF4444", cursor: "pointer", fontWeight: 700 }}>Gỡ ảnh</button>
+      </div>}
+      {uploadError && <div role="alert" style={{ flexBasis: "100%", color: "#EF4444", fontSize: 13 }}>{uploadError}</div>}
+    </form>
+    {imagePreview && <div role="dialog" aria-modal="true" aria-label="Ảnh phóng to" onClick={() => setImagePreview(null)} onKeyDown={e => { if (e.key === "Escape") setImagePreview(null); }} style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(2,6,23,.82)" }}>
+      <button type="button" autoFocus onClick={() => setImagePreview(null)} aria-label="Đóng ảnh phóng to" style={{ position: "absolute", top: 18, right: 18, width: 44, height: 44, border: 0, borderRadius: "50%", background: "white", color: "#0F172A", fontSize: 24, cursor: "pointer" }}>×</button>
+      <img src={imagePreview} alt="Ảnh phóng to" onClick={e => e.stopPropagation()} style={{ maxWidth: "min(100%, 1100px)", maxHeight: "90dvh", objectFit: "contain", borderRadius: 12 }} />
+    </div>}
+  </main>;
+}
 
 function AIConversationPage() {
     const t = useT();
@@ -24493,6 +24610,7 @@ export default function App(){
       case "eju":       return <EJURealExam/>;
       case "game":      return <SentenceBuilderPage/>;
       case "chat":      return <AIConversationPage/>;
+      case "ai-answer": return <AIAnswerPage/>;
       case "map":       return <JLPTProgressPage/>;
       case "achieve":   return <AchievementsPage/>;
       case "dictation": return <DictationPage/>;
