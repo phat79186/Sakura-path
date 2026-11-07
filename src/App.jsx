@@ -345,10 +345,10 @@ if (typeof document !== "undefined") {
         background: var(--bg, #EFF6FF) !important;
         color: var(--text, #0F172A) !important;
         margin: 0; padding: 0;
-        overflow-x: hidden;
+        overflow-x: clip;
         transition: background 0.35s cubic-bezier(.4,0,.2,1), color 0.25s ease;
       }
-      html, body, #root { width: 100%; overflow-x: hidden; }
+      html, body, #root { width: 100%; overflow-x: clip; }
       /* ════ JAPANESE TEXT FIXES ════════════════════════════════ */
       .jp-text {
         font-family: 'Noto Sans JP', sans-serif;
@@ -438,6 +438,9 @@ if (typeof document !== "undefined") {
       .kj-viewport:-webkit-full-screen { background-color:#F5F9FF !important; border-radius:0 !important; border:none !important; }
       :root.dark .kj-viewport:fullscreen { background-color:#0B1120 !important; }
       :root.dark .kj-viewport:-webkit-full-screen { background-color:#0B1120 !important; }
+      /* Nền sơ đồ Kanji: nền phẳng + chấm lưới (không bị gradient của .ba-card ở dark mode ghi đè) */
+      .kj-viewport.ba-card { background-color:#F5F9FF !important; background-image: radial-gradient(rgba(0,0,0,0.06) 1px,transparent 1px) !important; background-size:20px 20px !important; }
+      :root.dark .kj-viewport.ba-card { background-color:#0B1120 !important; background-image: radial-gradient(rgba(255,255,255,0.06) 1px,transparent 1px) !important; background-size:20px 20px !important; }
       /* ════ DARK MODE BASE ════════════════════════════════════ */
       :root.dark body { background: var(--bg, #0B1120) !important; color: var(--text, #E2E8F0) !important; }
       :root.dark { color-scheme: dark; }
@@ -660,7 +663,7 @@ if (typeof document !== "undefined") {
 }
       html, body, #root {
       width: 100%;
-      overflow-x: hidden;
+      overflow-x: clip;
       }
       .ba-page-enter {
   animation: baPageIn 0.5s cubic-bezier(.22,1,.36,1);
@@ -753,13 +756,13 @@ if (typeof document !== "undefined") {
       :root.dark ::-webkit-scrollbar-thumb { background:#1D4ED8; }
       /* ════ MOBILE FIX 1: Prevent horizontal scroll ══════════════════════ */
       html {
-        overflow-x: hidden;
+        overflow-x: clip;
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
       }
       body {
-        overflow-x: hidden;
-        max-width: 100vw;
+        max-width: 100%;
+        overscroll-behavior-y: auto;
       }
       img { max-width: 100%; height: auto; }
 
@@ -802,7 +805,10 @@ if (typeof document !== "undefined") {
       /* ════ MOBILE FIX 6: Japanese text overflow */
       @media (max-width: 640px) {
         .ba-card { word-break: break-word; overflow-wrap: break-word; }
-        .ba-card * { max-width: 100%; }
+        .ba-card img, .ba-card video, .ba-card canvas, .ba-card pre, .ba-card table { max-width: 100%; }
+        /* sơ đồ Bộ thủ: node định vị tuyệt đối, tuyệt đối không được co theo max-width */
+        .kj-viewport, .kj-viewport * { word-break: normal; overflow-wrap: normal; }
+        .kj-viewport .kj-node, .kj-viewport .kj-node * { max-width: none !important; flex-shrink: 0; }
       }
 
       /* ════ MOBILE FIX 7: Hide scrollbars on mobile */
@@ -909,10 +915,30 @@ if (typeof document !== "undefined") {
         white-space: nowrap;
       }
       .tab-scroll::-webkit-scrollbar { display: none; }
+      .tab-scroll > * { flex-shrink: 0; white-space: nowrap; }
+
+      /* ════ MOBILE FIX 21: page-enter animation nhẹ hơn (blur+scale cả trang làm giật trên điện thoại) */
+      @media (max-width: 640px) {
+        .ba-page-enter { animation: fadeIn 0.25s ease !important; }
+        .theme-mask { display: none !important; }
+      }
+
+      /* ════ MOBILE FIX 22: grid 1fr không bị nội dung dài làm tràn */
+      [style*="grid-template-columns"] > * { min-width: 0; }
+      pre, code { max-width: 100%; overflow-x: auto; }
+      table { max-width: 100%; }
 
 
     `;
     document.head.appendChild(s);
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const mv = document.createElement("meta"); mv.name = "viewport";
+      mv.content = "width=device-width, initial-scale=1, viewport-fit=cover";
+      document.head.appendChild(mv);
+    } else {
+      const mv = document.querySelector('meta[name="viewport"]');
+      if (!/viewport-fit/.test(mv.content)) mv.content += ", viewport-fit=cover";
+    }
   }
 
   // Inject theme-toggle styles separately — always refresh
@@ -2554,8 +2580,8 @@ function FlashcardPage({markLearned}){
     // Prevent card flip/drag when clicking buttons, inputs or interactive elements
     if (e.target.closest && e.target.closest('button, input, textarea, a, select')) return;
     isDragRef.current = false;
-    const cx=e.touches?e.touches[0].clientX:e.clientX;
-    const cy=e.touches?e.touches[0].clientY:e.clientY;
+    const cx = e.clientX;
+    const cy = e.clientY;
     setDrag({active:true,x:cx,y:cy,startX:cx,startY:cy});
   };
   const onMove = e => {
@@ -2607,7 +2633,7 @@ function FlashcardPage({markLearned}){
     const pct      = total2 ? Math.round(retained/total2*100) : 0;
     const avgStab  = Math.round(deck.reduce((a,c)=>a+(c.stability||0),0)/deck.length);
     return (
-      <div style={{minHeight:"calc(100vh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#0D1B2E)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:FG,padding:24}}>
+      <div style={{minHeight:"calc(100dvh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#0D1B2E)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:FG,padding:24}}>
         <div className="ba-card" style={{maxWidth:440,width:"100%",padding:28,textAlign:"center",background:W(0.04),border:"1.5px solid rgba(56,189,248,0.3)"}}>
           <div style={{fontSize:52,marginBottom:10}}>{pct>=80?"🏆":pct>=60?"⭐":"📚"}</div>
           <div style={{fontSize:26,fontWeight:900,color:AC,marginBottom:4}}>{retained}/{total2} Ghi nhớ</div>
@@ -2686,7 +2712,7 @@ function FlashcardPage({markLearned}){
   } : null;
 
   return (
-    <div style={{minHeight:"calc(100vh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#1E3A5F)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",color:FG,userSelect:"none",paddingBottom:24}}>
+    <div style={{minHeight:"calc(100dvh - 56px)",background:dark?"linear-gradient(180deg,#0F172A,#1E3A5F)":"linear-gradient(180deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",color:FG,userSelect:"none",paddingBottom:24}}>
 
       {/* ── Industry & Level Category Dropdown ─────────────────────────────── */}
       <DeckFilterDropdown value={deckFilter} onChange={(v)=>{setDeckFilter(v);setQIdx(0);setFlipped(false);}}/>
@@ -2773,10 +2799,21 @@ function FlashcardPage({markLearned}){
         )}
 
         <div
-          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
-          onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
-          style={{width:"100%",height:cardH,position:"relative",cursor:typingMode?"default":"pointer",
-            background:hint?hintColors[hint]:"transparent",borderRadius:24,transition:"background 0.2s"}}>
+  onPointerDown={onDown}
+  onPointerMove={onMove}
+  onPointerUp={onUp}
+  onPointerCancel={onUp}
+  style={{
+    width: "100%",
+    height: cardH,
+    position: "relative",
+    cursor: typingMode ? "default" : "pointer",
+    touchAction: "none",
+    background: hint ? hintColors[hint] : "transparent",
+    borderRadius: 24,
+    transition: "background 0.2s"
+  }}
+>
           <div style={{width:"100%",height:"100%",position:"relative",transformStyle:"preserve-3d",WebkitTransformStyle:"preserve-3d",
             transform:cTrans,WebkitTransform:cTrans,transition:drag.active?"none":"transform 0.5s cubic-bezier(.4,0,.2,1)",opacity:cardOpacity}}>
 
@@ -4039,7 +4076,7 @@ const w=useWidth();const isMob=w<640;
     <div style={{maxWidth:900,margin:"0 auto",padding:isMob?"20px 12px":"32px 24px",fontFamily:"'Nunito',sans-serif"}}>
       <h2 style={{fontWeight:900,fontSize:isMob?20:26,color:dark?"white":C.text,marginBottom:4}}>📝 Ngữ Pháp JLPT</h2>
       <p style={{color:CC.muted,marginBottom:12,fontSize:isMob?13:14}}>{activeGrammar.length} mẫu ngữ pháp · Kanji Breakdown · Ví dụ thực tế</p>
-      <div style={{display:"flex",gap:8,marginBottom:20,background:dark?"rgba(30,41,59,0.6)":"rgba(241,245,249,0.9)",borderRadius:16,padding:4,width:"fit-content"}}>
+      <div style={{display:"flex",gap:8,marginBottom:20,background:dark?"rgba(30,41,59,0.6)":"rgba(241,245,249,0.9)",borderRadius:16,padding:4,width:"fit-content",maxWidth:"100%",overflowX:"auto"}} className="tab-scroll">
         {[
           {id:"N5",label:"N5 Sơ cấp",count:ALL_GRAMMAR.N5.length},
           {id:"N4",label:"N4 Sơ trung",count:GRAMMAR_N4.length},
@@ -4780,7 +4817,7 @@ const w=useWidth();const isMob=w<640;
   const prevDays=(()=>{const p=MILESTONES.filter(m=>m.days<=s);return p.length?p[p.length-1].days:0;})();
   const pct=nextMile.days===prevDays?100:Math.min(100,Math.round((s-prevDays)/(nextMile.days-prevDays)*100));
   const hitMile=MILESTONES.find(m=>m.days===s);
-  return(<div style={{minHeight:"calc(100vh - 52px)",background:dark?"linear-gradient(135deg,#0f1923,#1a2a3a)":"linear-gradient(135deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:isMob?"16px":"32px"}}>
+  return(<div style={{minHeight:"calc(100dvh - 52px)",background:dark?"linear-gradient(135deg,#0f1923,#1a2a3a)":"linear-gradient(135deg,#EFF6FF,#DBEAFE)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:isMob?"16px":"32px"}}>
     <div style={{width:"100%",maxWidth:isMob?"100%":460,background:dark?W(0.06):"rgba(255,255,255,0.85)",backdropFilter:"blur(16px)",border:`1px solid ${glowing?"rgba(255,150,0,0.5)":W(0.1)}`,borderRadius:isMob?20:28,padding:isMob?"20px":"36px 40px",boxShadow:glowing?"0 16px 48px rgba(0,0,0,0.4),0 0 32px rgba(255,150,0,0.25)":"0 16px 48px rgba(0,0,0,0.4)",color:FG}}>
       {s===0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(168,218,220,0.12)",border:"1px solid rgba(168,218,220,0.3)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>👋</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Chào mừng đến Sakura Path!</div><div style={{fontSize:11,color:W(0.6)}}>Học bài đầu tiên để bắt đầu chuỗi ngày 🔥</div></div></div>)}
       {s>0&&!learnedToday&&(<div style={{display:"flex",gap:10,background:"rgba(255,149,0,0.15)",border:"1px solid rgba(255,149,0,0.4)",borderRadius:12,padding:"12px 14px",marginBottom:18,alignItems:"center"}}><span style={{fontSize:20}}>⚠️</span><div><div style={{fontWeight:700,fontSize:13,marginBottom:2}}>Hôm nay chưa học bài nào!</div><div style={{fontSize:11,color:W(0.6)}}>Làm ít nhất 1 bài để duy trì chuỗi 🔥</div></div></div>)}
@@ -17322,6 +17359,56 @@ const KANJI_N5 = [
 ];
  
 
+
+// ════════════════════════════════════════
+// KANJI STROKE-ORDER DIAGRAM (số thứ tự từng nét, dữ liệu KanjiVG — CC BY-SA 3.0, kanjivg.tagaini.net)
+// ════════════════════════════════════════
+const _kvgCache = {};
+async function loadKanjiStrokes(ch) {
+  if (_kvgCache[ch]) return _kvgCache[ch];
+  const hex = ch.codePointAt(0).toString(16).padStart(5, "0");
+  const res = await fetch(`https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg@master/kanji/${hex}.svg`);
+  if (!res.ok) throw new Error("KanjiVG not found");
+  const txt = await res.text();
+  const paths = [...txt.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map(m => m[1]);
+  const nums = [...txt.matchAll(/<text transform="matrix\(1 0 0 1 ([\d.\-]+) ([\d.\-]+)\)">(\d+)<\/text>/g)]
+    .map(m => ({ x: parseFloat(m[1]), y: parseFloat(m[2]), n: m[3] }));
+  if (!paths.length) throw new Error("empty");
+  return (_kvgCache[ch] = { paths, nums });
+}
+
+function KanjiStrokeDiagram({ char, dark, size = 220 }) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setData(null); setErr(false);
+    loadKanjiStrokes(char).then(d => { if (alive) setData(d); }).catch(() => { if (alive) setErr(true); });
+    return () => { alive = false; };
+  }, [char]);
+
+  const ink = dark ? "#E2E8F0" : "#111827";
+  const grid = dark ? "rgba(148,163,184,0.25)" : "rgba(100,116,139,0.25)";
+  if (err) return <div style={{ textAlign:"center", fontSize:12, color:"#EF4444", margin:"8px 0" }}>Không tải được thứ tự nét (cần mạng).</div>;
+  if (!data) return <div style={{ textAlign:"center", fontSize:12, opacity:0.7, margin:"8px 0" }}>⏳ Đang tải thứ tự nét...</div>;
+  return (
+    <div style={{ display:"flex", justifyContent:"center", margin:"0 0 10px" }}>
+      <svg viewBox="0 0 109 109" width={size} height={size}
+        style={{ maxWidth:"100%", borderRadius:12, background: dark ? "rgba(15,23,42,0.85)" : "#FFFFFF",
+                 border:`1px solid ${dark ? "rgba(99,102,241,0.3)" : "rgba(99,102,241,0.2)"}` }}>
+        <line x1="54.5" y1="0" x2="54.5" y2="109" stroke={grid} strokeWidth="0.5" strokeDasharray="2 2"/>
+        <line x1="0" y1="54.5" x2="109" y2="54.5" stroke={grid} strokeWidth="0.5" strokeDasharray="2 2"/>
+        <g fill="none" stroke={ink} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          {data.paths.map((d, i) => <path key={i} d={d}/>)}
+        </g>
+        <g fontSize="8" fontWeight="700" fill="#EF4444" fontFamily="Arial, sans-serif">
+          {data.nums.map((o, i) => <text key={i} x={o.x} y={o.y}>{o.n}</text>)}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 function KanjiWritingPage({ markLearned }) {
     const t = useT();
 const CC = useColors();
@@ -17516,18 +17603,6 @@ const CC = useColors();
     redrawCanvas();
   };
 
-  // Stroke order animation
-  const animateStrokes = () => {
-    setStrokeAnim(true);
-    setShowAnswer(true);
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      setStrokeStep(step);
-      if (step >= kanji.strokes) { clearInterval(interval); setStrokeAnim(false); }
-    }, 600);
-  };
-
   // After scoring, handle trace graduation
   const handleTraceGraduation = (score) => {
     if (!traceMode) return;
@@ -17680,10 +17755,10 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
       </div>
 
       {/* Level selector */}
-      <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+      <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
         {["N5","N4","N3","N2","N1"].map(lv => (
           <button key={lv} onClick={()=>{strokesRef.current=[];currentStroke.current=[];setResult(null);setShowAnswer(false);setTraceOpacity(0.18);setTraceCorrectCount(0);setKanjiLevel(lv);setSelectedIdx(0);setFilter("all");}}
-            style={{ padding:"8px 20px", borderRadius:20, border:`2px solid ${kanjiLevel===lv?"#6366F1":dark?"rgba(99,102,241,0.2)":"rgba(99,102,241,0.3)"}`,
+            style={{ padding: isMob?"6px 12px":"8px 20px", borderRadius:20, border:`2px solid ${kanjiLevel===lv?"#6366F1":dark?"rgba(99,102,241,0.2)":"rgba(99,102,241,0.3)"}`,
               background: kanjiLevel===lv?"linear-gradient(135deg,#4338CA,#6366F1)":"transparent",
               color: kanjiLevel===lv?"white":CC.muted, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
             {lv} <span style={{fontSize:11,opacity:0.8}}>({(ALL_KANJI[lv]||[]).length} kanji)</span>
@@ -17692,7 +17767,7 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
       </div>
 
       {/* Filter chips */}
-      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+      <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
         {[{id:"all",l:`Tất cả (${activeList.length})`},{id:"new",l:`Chưa học (${activeList.filter(k=>!kanjiStats[k.k]).length})`},{id:"wrong",l:`Luyện lại (${needReview})`}].map(f=>(
           <button key={f.id} onClick={()=>{strokesRef.current=[];currentStroke.current=[];setResult(null);setShowAnswer(false);setFilter(f.id);setSelectedIdx(0);}}
             style={{ padding:"6px 14px", borderRadius:20, border:`2px solid ${filter===f.id?"#6366F1":dark?"rgba(99,102,241,0.2)":"rgba(99,102,241,0.3)"}`,
@@ -17710,7 +17785,7 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
         </div>
       ) : (
 
-      <div style={{ display: isMob?"block":"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <div style={{ display: isMob?"block":"grid", gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)", gap:20 }}>
 
         {/* Left: Kanji info card */}
         <div style={{ background:cardBg, borderRadius:20, padding:isMob?"18px":"24px", border:`1px solid ${dark?"rgba(99,102,241,0.2)":"rgba(99,102,241,0.1)"}`, marginBottom: isMob?16:0 }}>
@@ -17888,28 +17963,18 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
               </button>
             </div>
 
-            {/* Stroke order button */}
-            <button onClick={animateStrokes}
-              style={{ width:"100%", padding:"10px", borderRadius:12, border:"none", marginBottom:10,
-                background:"linear-gradient(135deg,rgba(124,58,237,0.15),rgba(99,102,241,0.15))",
-                color:"#A855F7", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif",
-                border:`1px solid rgba(124,58,237,0.25)` }}>
-              {strokeAnim ? `▶ Nét ${strokeStep}/${kanji.strokes}...` : "📐 Xem thứ tự nét (animation)"}
-            </button>
-
-            {/* Stroke order visual dots */}
-            {(showStroke || strokeAnim) && (
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10, justifyContent:"center" }}>
-                {Array.from({length:kanji.strokes},(_,i)=>(
-                  <div key={i} style={{ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800,
-                    background: i<strokeStep ? "linear-gradient(135deg,#7C3AED,#6366F1)" : dark?"rgba(30,41,59,0.8)":"rgba(241,245,249,0.9)",
-                    color: i<strokeStep ? "white" : CC.muted,
-                    transition:"all 0.3s", border:`2px solid ${i<strokeStep?"transparent":dark?"rgba(99,102,241,0.2)":"rgba(99,102,241,0.15)"}`,
-                    boxShadow: i<strokeStep?"0 2px 8px rgba(124,58,237,0.4)":"none" }}>
-                    {i+1}
-                  </div>
-                ))}
-              </div>
+            {/* Stroke order: hình Kanji có đánh số từng nét */}
+            {(mode !== "dictation" || showAnswer) && (
+              <>
+                <button onClick={()=>setShowStroke(v=>!v)}
+                  style={{ width:"100%", padding:"10px", borderRadius:12, marginBottom:10,
+                    background:"linear-gradient(135deg,rgba(124,58,237,0.15),rgba(99,102,241,0.15))",
+                    color:"#A855F7", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif",
+                    border:"1px solid rgba(124,58,237,0.25)" }}>
+                  {showStroke ? "🙈 Ẩn thứ tự nét" : `📐 Xem thứ tự nét (${kanji.strokes} nét)`}
+                </button>
+                {showStroke && <KanjiStrokeDiagram char={kanji.k} dark={dark} />}
+              </>
             )}
 
             {/* Check button */}
@@ -18220,7 +18285,7 @@ const CC = useColors();
         </div>
       </div>
 
-      <div style={{ display: isMob ? "block" : "flex", minHeight:"calc(100vh - 60px)" }}>
+      <div style={{ display: isMob ? "block" : "flex", minHeight:"calc(100dvh - 60px)" }}>
         {/* Left: Question navigator */}
         <div style={{ width: isMob?"100%":180, background: dark?"rgba(15,23,42,0.6)":"rgba(248,250,252,0.9)", borderRight: isMob?"none":`1px solid ${dark?"rgba(56,189,248,0.1)":"rgba(37,99,235,0.1)"}`, padding:isMob?"12px":"16px", flexShrink:0 }}>
           <div style={{ fontSize:11, fontWeight:700, color:CC.muted, marginBottom:10 }}>DANH SÁCH CÂU HỎI</div>
@@ -19481,7 +19546,7 @@ function PomodoroWatcher({ page, setPage }) {
       )}
       {showChip && (
         <button onClick={() => setPage("timer")} title="Quay lại Pomodoro" style={{
-          position: "fixed", right: 14, bottom: 14, zIndex: 1500,
+          position: "fixed", right: 14, bottom: "calc(14px + env(safe-area-inset-bottom, 0px))", zIndex: 1500,
           background: isWork ? "#4338CA" : "#10B981", color: "white", border: "none", borderRadius: 999,
           padding: "9px 16px", fontWeight: 900, fontSize: 14, cursor: "pointer",
           boxShadow: "0 6px 20px rgba(0,0,0,0.3)", display: "flex", alignItems: "center", gap: 8,
@@ -19842,9 +19907,9 @@ const CC = useColors();
     <div style={{ maxWidth:800, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
       {/* New badge notification */}
       {newBadge && (
-        <div style={{ position:"fixed", top:80, right:20, zIndex:999,
+        <div style={{ position:"fixed", top:80, right:12, left:12, marginLeft:"auto", width:"fit-content", zIndex:999,
           background:"linear-gradient(135deg,#F59E0B,#D97706)", borderRadius:20, padding:"14px 20px",
-          boxShadow:"0 8px 32px rgba(245,158,11,0.5)", color:"white", maxWidth:280,
+          boxShadow:"0 8px 32px rgba(245,158,11,0.5)", color:"white", maxWidth:"min(280px, calc(100vw - 24px))",
           animation:"slideIn 0.4s ease" }}>
           <div style={{ fontSize:12, fontWeight:700, opacity:0.9, marginBottom:2 }}>🎉 THÀNH TÍCH MỚI!</div>
           <div style={{ fontSize:24 }}>{newBadge.icon}</div>
@@ -21836,11 +21901,11 @@ function KanjiDiagramDetail({ node, onClose }) {
         padding:"14px 16px 12px", textAlign:"center", position:"relative", overflow:"hidden"
       }}>
         <button onClick={onClose} style={{
-          position:"absolute", top:10, right:10, width:26, height:26, borderRadius:"50%",
+          position:"absolute", top:8, right:8, zIndex:5, width:34, height:34, borderRadius:"50%",
           background:"rgba(255,255,255,0.2)", border:"none", color:"white", cursor:"pointer",
           fontSize:13, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center"
         }}>✕</button>
-        <div style={{ position:"absolute", top:-16, right:-8, fontSize:80, opacity:0.12, fontFamily:"'Noto Sans JP',sans-serif" }}>{node.kanji}</div>
+        <div style={{ position:"absolute", top:-16, right:-8, fontSize:80, opacity:0.12, pointerEvents:"none", fontFamily:"'Noto Sans JP',sans-serif" }}>{node.kanji}</div>
         <div style={{ fontSize:44, fontWeight:900, color:"white", fontFamily:"'Noto Sans JP',sans-serif", lineHeight:1, marginBottom:8, position:"relative" }}>{node.kanji}</div>
         <div style={{ display:"flex", gap:6, justifyContent:"center", marginBottom:8, position:"relative" }}>
           <span style={{ fontSize:11, fontWeight:800, background:"rgba(255,255,255,0.25)", color:"white", borderRadius:20, padding:"2px 10px" }}>{node.level}</span>
@@ -21903,7 +21968,9 @@ function KanjiDiagramView() {
   const [dark, toggleDark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640; const isTab = w < 1024;
 
-  const [collapsed, setCollapsed] = useState(() => new Set());
+  // Mobile: mở sơ đồ ở dạng thu gọn (chỉ hiện chữ gốc) để chữ đủ to, bấm ▼ để mở nhánh
+  const initCollapsed = () => (isMob ? new Set(KJ_ALL_NODES.filter(n => n.children && n.children.length).map(n => n.kanji)) : new Set());
+  const [collapsed, setCollapsed] = useState(initCollapsed);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
@@ -21914,6 +21981,12 @@ function KanjiDiagramView() {
   const [pan, setPan] = useState({ x:40, y:40 });
   const viewportRef = useRef(null);
   const dragState = useRef(null);
+  const pinchRef = useRef(null);
+  const movedRef = useRef(false);
+  const panRef = useRef(pan);
+  const scaleRef = useRef(scale);
+  panRef.current = pan;
+  scaleRef.current = scale;
 
   const radius   = isMob ? 0 : 0; // unused (pill nodes now)
   const colWidth = isMob ? 168 : 210;
@@ -21937,20 +22010,47 @@ function KanjiDiagramView() {
 
   const pick = (node) => setSelected(node);
 
-  // ── Pan handlers ──
+  // ── Pan + pinch-zoom handlers ──
   const onPointerDown = (e) => {
-    if (e.target.closest(".kj-node") || e.target.closest(".kj-arrow")) return;
+    if (e.touches && e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      pinchRef.current = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, scale: scaleRef.current };
+      dragState.current = null;
+      return;
+    }
+    if (e.target.closest(".kj-arrow")) return;
+    movedRef.current = false;
     const point = e.touches ? e.touches[0] : e;
     dragState.current = { startX:point.clientX, startY:point.clientY, panX:pan.x, panY:pan.y };
   };
   const onPointerMove = (e) => {
+    if (e.touches && e.touches.length === 2 && pinchRef.current) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const vp = viewportRef.current;
+      if (!vp) return;
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const r = vp.getBoundingClientRect();
+      const cx = (a.clientX + b.clientX) / 2 - r.left, cy = (a.clientY + b.clientY) / 2 - r.top;
+      const ns = +Math.min(2.2, Math.max(0.3, pinchRef.current.scale * d / pinchRef.current.dist)).toFixed(3);
+      const k = ns / scaleRef.current;
+      const np = { x: cx - (cx - panRef.current.x) * k, y: cy - (cy - panRef.current.y) * k };
+      scaleRef.current = ns; panRef.current = np;
+      setScale(ns); setPan(np);
+      movedRef.current = true;
+      return;
+    }
     if (!dragState.current) return;
     const point = e.touches ? e.touches[0] : e;
     const dx = point.clientX - dragState.current.startX;
     const dy = point.clientY - dragState.current.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) movedRef.current = true;
     setPan({ x: dragState.current.panX+dx, y: dragState.current.panY+dy });
   };
-  const onPointerUp = () => { dragState.current = null; };
+  const onPointerUp = () => {
+    dragState.current = null;
+    pinchRef.current = null;
+    setTimeout(() => { movedRef.current = false; }, 60);
+  };
 
   useEffect(() => {
     const move = (e) => onPointerMove(e);
@@ -21973,17 +22073,25 @@ function KanjiDiagramView() {
     setScale(s => Math.min(2.2, Math.max(0.3, +(s+delta).toFixed(3))));
   };
 
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const h = (e) => { e.preventDefault(); onWheel(e); };
+    vp.addEventListener("wheel", h, { passive:false });
+    return () => vp.removeEventListener("wheel", h);
+  }, []);
+
   const zoomIn  = () => setScale(s => Math.min(2.2, +(s+0.15).toFixed(2)));
   const zoomOut = () => setScale(s => Math.max(0.3, +(s-0.15).toFixed(2)));
   const doFit   = () => {
     const vp = viewportRef.current;
     if (!vp) return;
     const availW = vp.clientWidth - 40, availH = vp.clientHeight - 40;
-    const s = Math.min(availW/totalW, availH/totalH, 1.4);
-    setScale(Math.max(0.3, +s.toFixed(2)));
-    setPan({ x:20, y:20 });
+    const s = isMob ? Math.min(availW/totalW, 1.1) : Math.min(availW/totalW, availH/totalH, 1.4);
+    setScale(Math.max(isMob ? 0.55 : 0.3, +s.toFixed(2)));
+    setPan({ x: isMob ? 12 : 20, y: isMob ? 12 : 20 });
   };
-  const doReset = () => { setScale(0.85); setPan({x:40,y:40}); setCollapsed(new Set()); setSelected(null); };
+  const doReset = () => { setScale(isMob?0.9:0.85); setPan({x:isMob?12:40,y:isMob?12:40}); setCollapsed(initCollapsed()); setSelected(null); };
   const doFull  = () => {
     const el = viewportRef.current;
     if (!el) return;
@@ -22097,7 +22205,7 @@ function KanjiDiagramView() {
   const highlightSet = selected ? new Set([selected.kanji, activeParent, ...activeChildren].filter(Boolean)) : null;
 
   return (
-    <div style={{ display:"flex", gap:12, alignItems:"stretch", flexDirection: isTab ? "column" : "row", flex:1, minHeight:0 }}>
+    <div style={{ display:"flex", gap:12, alignItems:"stretch", flexDirection: isTab ? "column" : "row", flex:1, minHeight:0, overflowY: isTab ? "auto" : undefined }}>
       {/* Sidebar toggle (mobile/tablet) */}
       {isTab && (
         <button className="ba-btn" onClick={()=>setSidebarOpen(o=>!o)}
@@ -22113,11 +22221,10 @@ function KanjiDiagramView() {
           ref={viewportRef}
           onMouseDown={onPointerDown}
           onTouchStart={onPointerDown}
-          onWheel={onWheel}
           className="ba-card kj-viewport"
           style={{
             padding:0, overflow:"hidden", position:"relative",
-            flex: isMob ? "none" : 1, height: isMob ? 460 : undefined, minHeight: 300,
+            flex: 1, minHeight: isMob ? 220 : 300, touchAction: "none",
             cursor: dragState.current ? "grabbing" : "grab",
             backgroundColor: dark ? "#0B1120" : "#F5F9FF",
             backgroundImage: dark
@@ -22149,7 +22256,7 @@ function KanjiDiagramView() {
               const isHi = highlightSet?.has(kanji);
               return (
                 <div key={kanji} className="kj-node"
-                  onClick={()=>pick(node)}
+                  onClick={()=>{ if (!movedRef.current) pick(node); }}
                   style={{
                     position:"absolute", left:info.x, top:info.y,
                     display:"flex", alignItems:"center", gap:6,
@@ -22161,11 +22268,11 @@ function KanjiDiagramView() {
                     transition:"opacity 0.2s, box-shadow 0.15s"
                   }}>
                   {info.hasChildren && (
-                    <span className="kj-arrow" onClick={(e)=>toggleCollapse(kanji,e)}
+                    <span className="kj-arrow" onClick={(e)=>{ if (movedRef.current) { e.stopPropagation(); return; } toggleCollapse(kanji,e); }}
                       style={{
-                        fontSize:10, color: isSel?"white":"#DC2626", cursor:"pointer", flexShrink:0,
+                        fontSize:isMob?12:10, color: isSel?"white":"#DC2626", cursor:"pointer", flexShrink:0,
                         transform: info.isCollapsed ? "rotate(-90deg)" : "none", transition:"transform 0.15s",
-                        width:16, height:16, display:"flex", alignItems:"center", justifyContent:"center"
+                        width:isMob?26:16, height:isMob?26:16, display:"flex", alignItems:"center", justifyContent:"center"
                       }}>▼</span>
                   )}
                   <span style={{
@@ -22173,7 +22280,7 @@ function KanjiDiagramView() {
                     fontSize:isMob?18:22, color: isSel?"white":CC.text, lineHeight:1
                   }}>{kanji}</span>
                   <span style={{
-                    fontSize:10, fontWeight:800, borderRadius:20, padding:"2px 8px",
+                    fontSize:isMob?11:10, fontWeight:800, borderRadius:20, padding:"2px 8px",
                     background: isSel?"rgba(255,255,255,0.25)":(dark?`${lv.fg}22`:lv.bg),
                     color: isSel?"white":lv.fg,
                     border: isSel?"none":`1px solid ${lv.bd}`
@@ -22186,15 +22293,22 @@ function KanjiDiagramView() {
                     }}>BC</span>
                   )}
                   {showHV && node.hv && (
-                    <span style={{ fontSize:9, fontWeight:700, color: isSel?"rgba(255,255,255,0.75)":CC.muted, letterSpacing:0.5 }}>{node.hv}</span>
+                    <span style={{ fontSize:isMob?11:9, fontWeight:700, color: isSel?"rgba(255,255,255,0.75)":CC.muted, letterSpacing:0.5 }}>{node.hv}</span>
                   )}
                 </div>
               );
             })}
           </div>
 
+          {isMob && !selected && (
+            <div style={{ position:"absolute", top:8, left:10, right:10, fontSize:11, color:CC.muted, pointerEvents:"none", zIndex:5, textAlign:"center" }}>
+              👆 Kéo để di chuyển · 2 ngón để zoom · chạm chữ để xem
+            </div>
+          )}
           {/* Floating toolbar */}
-          <div style={{ position:"absolute", top:10, right:10, display:"flex", flexDirection:"column", gap:6, zIndex:20 }}>
+          <div style={ isMob
+            ? { position:"absolute", bottom:10, left:10, right:10, display:"flex", flexDirection:"row", gap:6, zIndex:20 }
+            : { position:"absolute", top:10, right:10, display:"flex", flexDirection:"column", gap:6, zIndex:20 } }>
             {[
               { label:"+", act:zoomIn, bg:"white", fg:"#111827" },
               { label:"−", act:zoomOut, bg:"white", fg:"#111827" },
@@ -22204,25 +22318,34 @@ function KanjiDiagramView() {
               { label:"Esc", act:()=>setSelected(null), bg:"#F59E0B", fg:"white" },
               { label:"Dark", act:()=>toggleDark(!dark), bg:"#111827", fg:"white" },
               { label:"Reset", act:doReset, bg:"#DC2626", fg:"white" },
-            ].map((b,i)=>(
+            ].filter(b => !(isMob && ["Full","Esc","Dark"].includes(b.label))).map((b,i)=>(
               <button key={i} onClick={b.act} className="ba-btn"
                 style={{
-                  width:isMob?36:44, height:isMob?30:32, borderRadius:10, border:"none",
-                  background:b.bg, color:b.fg, fontSize:isMob?11:12, fontWeight:800,
+                  width:isMob?undefined:44, flex:isMob?1:undefined, maxWidth:isMob?84:undefined, height:isMob?42:32, borderRadius:10, border:"none",
+                  background:b.bg, color:b.fg, fontSize:isMob?14:12, fontWeight:800,
                   boxShadow:"0 2px 10px rgba(0,0,0,0.18)", cursor:"pointer"
                 }}>{b.label}</button>
             ))}
           </div>
 
           {/* Legend */}
-          <div style={{ position:"absolute", bottom:10, left:10, display:"flex", gap:10, flexWrap:"wrap", fontSize:10, color:CC.muted, background:dark?"rgba(15,23,42,0.85)":"rgba(255,255,255,0.9)", borderRadius:10, padding:"6px 10px", maxWidth:"70%" }}>
+          <div style={{ position:"absolute", bottom:10, left:10, display:isMob?"none":"flex", gap:10, flexWrap:"wrap", fontSize:10, color:CC.muted, background:dark?"rgba(15,23,42,0.85)":"rgba(255,255,255,0.9)", borderRadius:10, padding:"6px 10px", maxWidth:"70%" }}>
             <span>🖱️ Kéo để di chuyển</span><span>🖱️ Cuộn để zoom</span>
           </div>
         </div>
 
       </div>
 
-      {/* Detail panel (right column) */}
+      {/* Detail: bottom sheet trên mobile */}
+      {isMob && selected && (
+        <div style={{ position:"fixed", left:0, right:0, bottom:0, zIndex:1200, maxHeight:"58dvh", overflowY:"auto", WebkitOverflowScrolling:"touch",
+          background: dark ? "#0B1120" : "#FFFFFF", borderRadius:"20px 20px 0 0", boxShadow:"0 -10px 40px rgba(0,0,0,0.35)",
+          padding:"8px 10px calc(10px + env(safe-area-inset-bottom, 0px))", animation:"slideUpModal 0.28s cubic-bezier(.4,0,.2,1)" }}>
+          <div style={{ width:40, height:4, borderRadius:2, background: dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)", margin:"0 auto 8px" }}/>
+          <KanjiDiagramDetail node={selected} onClose={()=>setSelected(null)}/>
+        </div>
+      )}
+      {!isMob && (
       <div style={{ width: isTab ? "100%" : 270, flexShrink:0, minHeight:0, overflowY:"auto", display:"flex", flexDirection:"column" }}>
         {selected ? (
           <KanjiDiagramDetail node={selected} onClose={()=>setSelected(null)}/>
@@ -22233,6 +22356,7 @@ function KanjiDiagramView() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -22310,20 +22434,20 @@ function KanjiBuilderPage() {
   const isCorrect = checked && (quizSlots.join("")===k.radicals.join("") || quizSlots.sort().join("")===k.radicals.slice().sort().join(""));
 
   return (
-    <div style={{ maxWidth: view==="diagram" ? 1360 : 720, margin:"0 auto", padding:isMob?"12px 10px":"14px 24px", fontFamily:"'Nunito',sans-serif", transition:"max-width 0.2s", flex:1, minHeight:0, width:"100%", boxSizing:"border-box", display:"flex", flexDirection:"column" }}>
+    <div style={{ maxWidth: view==="diagram" ? 1360 : 720, margin:"0 auto", padding:isMob?"12px 10px":"14px 24px", fontFamily:"'Nunito',sans-serif", transition:"max-width 0.2s", flex:1, minHeight:0, width:"100%", boxSizing:"border-box", display:"flex", flexDirection:"column", overflowY: view==="quiz" ? "auto" : "hidden", WebkitOverflowScrolling:"touch" }}>
       {/* Header */}
       <div style={{ background:"linear-gradient(135deg,#451A03,#92400E,#B45309)", borderRadius:24, padding:isMob?"14px 18px":"14px 28px", color:"white", marginBottom:12, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:-20, right:-10, fontSize:120, opacity:0.07 }}>⛩️</div>
         <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>KANJI BUILDER · BỘ THỦ</div>
         <div style={{ fontSize:isMob?20:26, fontWeight:900, marginBottom:6 }}>{"⛩️ Kanji Bộ Thủ (Radicals)"}</div>
-        <div style={{ fontSize:13, opacity:0.8, marginBottom:14 }}>Hiểu Kanji qua bộ thủ cấu thành · Ghép radical thành chữ</div>
-        <div style={{ background:"rgba(255,255,255,0.15)", borderRadius:12, padding:"6px 14px", fontSize:12, fontWeight:700, display:"inline-block" }}>
+        <div style={{ fontSize:13, opacity:0.8, marginBottom:14, display: isMob && view==="diagram" ? "none" : "block" }}>Hiểu Kanji qua bộ thủ cấu thành · Ghép radical thành chữ</div>
+        <div style={{ background:"rgba(255,255,255,0.15)", borderRadius:12, padding:"6px 14px", fontSize:12, fontWeight:700, display: isMob && view==="diagram" ? "none" : "inline-block" }}>
           ✅ {score.correct}/{score.total} · {idx+1}/{RADICAL_KANJI.length} Kanji
         </div>
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display:"flex", gap:8, marginBottom:20, background:dark?"rgba(30,41,59,0.5)":"rgba(241,245,249,0.8)", padding:5, borderRadius:14 }}>
+      <div style={{ display:"flex", gap:8, marginBottom:isMob?12:20, background:dark?"rgba(30,41,59,0.5)":"rgba(241,245,249,0.8)", padding:5, borderRadius:14 }}>
         {[
           { id:"diagram", icon:"🌳", label:"Sơ Đồ Kanji" },
           { id:"quiz",    icon:"🧩", label:"Ghép Kanji" },
@@ -24345,7 +24469,14 @@ export default function App(){
     if(typeof window!=="undefined") window.scrollTo({top:0,behavior:"smooth"});
   };
 
-  const isFixedPage = page === "radical" && typeof window !== "undefined" && window.innerWidth >= 900;
+  const isFixedPage = page === "radical";
+  useEffect(() => {
+    if (!isFixedPage) return;
+    const h = document.documentElement, b = document.body;
+    const ph = h.style.overflow, pb = b.style.overflow;
+    h.style.overflow = "hidden"; b.style.overflow = "hidden";
+    return () => { h.style.overflow = ph; b.style.overflow = pb; };
+  }, [isFixedPage]);
   const render=()=>{
     switch(page){
       case "profile":   return <ProfilePage user={user} onSignIn={()=>setShowLogin(true)} onSignOut={signOut} setPage={navigate} loading={authLoading} gsiReady={gsiReady}/>;
@@ -24384,8 +24515,8 @@ export default function App(){
       background: dark
         ? "linear-gradient(180deg,#0F172A 0%,#0D1B2E 100%)"
         : "linear-gradient(180deg,#EFF6FF 0%,#DBEAFE 100%)",
-      minHeight:"100vh",
-      height: isFixedPage ? "100vh" : "auto",
+      minHeight:"100dvh",
+      height: isFixedPage ? "100dvh" : "auto",
       overflow: isFixedPage ? "hidden" : "visible",
       color: dark ? "#E2E8F0" : "#0F172A",
     }}>
@@ -24397,7 +24528,7 @@ export default function App(){
           <div key={i} style={{"--i":v}}/>
         ))}
       </div>
-      <div key={animKey} className="ba-page-enter" style={{minHeight: isFixedPage ? 0 : "calc(100vh - 56px)", height: isFixedPage ? "calc(100vh - 56px)" : "auto", overflow: isFixedPage ? "hidden" : "visible"}}>
+      <div key={animKey} className="ba-page-enter" style={{minHeight: isFixedPage ? 0 : "calc(100dvh - 56px)", height: isFixedPage ? "calc(100dvh - 56px)" : "auto", overflow: isFixedPage ? "hidden" : "visible", display: isFixedPage ? "flex" : undefined, flexDirection: isFixedPage ? "column" : undefined}}>
         {render()}
       </div>
       {!isFixedPage && <Footer setPage={navigate}/>}

@@ -3,6 +3,17 @@ import { EJU_SUBJECTS, EJU_GROUPS, EJU_ANSWER_PDF } from "./ejuData";
 
 const HISTORY_KEY = "sp_eju_history";
 
+// Màn hình hẹp (điện thoại / tablet dọc): dùng bố cục 1 cột + tab
+function useIsNarrow(bp = 860) {
+  const [n, setN] = useState(() => typeof window !== "undefined" && window.innerWidth < bp);
+  useEffect(() => {
+    const h = () => setN(window.innerWidth < bp);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [bp]);
+  return n;
+}
+
 const loadHistory = () => {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
@@ -306,6 +317,8 @@ function ExamRoom({ sub, onExit }) {
   const [submitted, setSubmitted] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(saved ? saved.secondsLeft : sub.minutes * 60);
   const [pdfOk, setPdfOk] = useState(true);
+  const narrow = useIsNarrow();
+  const [tab, setTab] = useState("exam"); // chỉ dùng khi narrow: "exam" | "answer"
 
   // Kiểm tra file PDF có thật không (tránh iframe nạp lại index.html của app)
   useEffect(() => {
@@ -345,6 +358,7 @@ function ExamRoom({ sub, onExit }) {
   const handleSubmit = () => {
     if (submitted) return;
     setSubmitted(true);
+    setTab("answer");
     if (graded) {
       try {
         const hist = loadHistory();
@@ -395,11 +409,76 @@ function ExamRoom({ sub, onExit }) {
 
   const timerColor =
     secondsLeft > sub.minutes * 30 ? "#34D399" : secondsLeft > sub.minutes * 12 ? "#FBBF24" : "#F87171";
-  const paneHeight = "calc(100vh - 64px)";
+  const paneHeight = "calc(100dvh - 64px)";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0F172A", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        minHeight: "100dvh",
+        height: narrow ? "100dvh" : undefined,
+        overflow: narrow ? "hidden" : undefined,
+        background: "#0F172A",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Header gọn cho mobile */}
+      {narrow && (
+        <header
+          style={{
+            background: "#0F172A",
+            color: "#FFFFFF",
+            padding: "8px 10px",
+            paddingTop: "calc(8px + env(safe-area-inset-top, 0px))",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={onExit}
+            aria-label="Thoát (tạm dừng)"
+            style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "none", borderRadius: 10, width: 40, height: 40, fontSize: 18, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}
+          >
+            ←
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {sub.icon} EJU {sub.jp} · {sub.vn}
+            </div>
+            <div style={{ fontSize: 11, color: "#94A3B8" }}>{answeredCount}/{total} đã trả lời</div>
+          </div>
+          <div
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              border: `2px solid ${timerColor}66`,
+              borderRadius: 16,
+              padding: "4px 10px",
+              fontFamily: "monospace",
+              fontWeight: 900,
+              fontSize: 14,
+              color: timerColor,
+              flexShrink: 0,
+            }}
+          >
+            {formatTime(secondsLeft)}
+          </div>
+          {!submitted ? (
+            <button onClick={confirmSubmit} style={{ background: "linear-gradient(135deg,#DC2626,#B91C1C)", color: "#fff", border: "none", borderRadius: 10, height: 40, padding: "0 12px", fontWeight: 800, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+              Nộp
+            </button>
+          ) : (
+            <button onClick={restart} style={{ background: "#2563EB", color: "#fff", border: "none", borderRadius: 10, height: 40, padding: "0 12px", fontWeight: 800, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+              Làm lại
+            </button>
+          )}
+        </header>
+      )}
+
       {/* Header */}
+      {!narrow && (
       <header
         style={{
           background: "#0F172A",
@@ -495,23 +574,79 @@ function ExamRoom({ sub, onExit }) {
           )}
         </div>
       </header>
+      )}
 
       {sub.key === "physics" || sub.key === "chemistry" || sub.key === "biology" ? (
-        <div style={{ background: "#1E293B", color: "#CBD5E1", fontSize: 12, padding: "6px 20px" }}>
+        <div style={{ background: "#1E293B", color: "#CBD5E1", fontSize: narrow ? 11 : 12, padding: narrow ? "5px 12px" : "6px 20px", flexShrink: 0, display: narrow && tab !== "exam" ? "none" : "block" }}>
           ℹ️ Đề thật: chọn 2 trong 3 môn khoa học, làm trong 80 phút. Ở đây mỗi môn được bấm 40 phút để bạn luyện từng môn.
         </div>
       ) : null}
 
+      {/* Tab chuyển Đề thi / Phiếu trả lời (mobile) */}
+      {narrow && (
+        <div role="tablist" style={{ display: "flex", gap: 6, background: "#1E293B", padding: 6, flexShrink: 0 }}>
+          {[
+            ["exam", "📄 Đề thi"],
+            ["answer", `✍️ Phiếu trả lời · ${answeredCount}/${total}`],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              style={{
+                flex: 1,
+                height: 42,
+                borderRadius: 10,
+                border: "none",
+                fontWeight: 800,
+                fontSize: 13,
+                cursor: "pointer",
+                background: tab === id ? "#2563EB" : "rgba(255,255,255,0.08)",
+                color: tab === id ? "#FFFFFF" : "#CBD5E1",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Vùng chính */}
-      <div style={{ flex: 1, display: "flex", flexWrap: "wrap", overflow: "hidden" }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: narrow ? "column" : "row",
+          flexWrap: narrow ? "nowrap" : "wrap",
+          overflow: "hidden",
+        }}
+      >
         {/* PDF */}
-        <div style={{ flex: "1 1 540px", background: "#1E293B", height: paneHeight, minHeight: 420 }}>
+        <div
+          style={
+            narrow
+              ? { flex: 1, minHeight: 0, background: "#1E293B", display: tab === "exam" ? "flex" : "none", flexDirection: "column" }
+              : { flex: "1 1 540px", background: "#1E293B", height: paneHeight, minHeight: 420 }
+          }
+        >
+          {narrow && pdfOk && (
+            <a
+              href={sub.pdf}
+              target="_blank"
+              rel="noreferrer"
+              style={{ flexShrink: 0, textAlign: "center", padding: "7px 10px", fontSize: 12, fontWeight: 700, color: "#BAE6FD", background: "#0F172A", textDecoration: "none" }}
+            >
+              ↗ Mở đề PDF ở tab mới (dễ phóng to / cuộn trên điện thoại)
+            </a>
+          )}
           {pdfOk ? (
             <iframe
               key={`${sub.key}-${sub.page}`}
-              src={`${sub.pdf}#page=${sub.page}&toolbar=1&navpanes=0&scrollbar=1`}
+              src={`${sub.pdf}#page=${sub.page}&toolbar=${narrow ? 0 : 1}&navpanes=0&scrollbar=1${narrow ? "&view=FitH" : ""}`}
               title={`Đề EJU ${sub.vn}`}
-              style={{ width: "100%", height: "100%", border: "none" }}
+              style={{ width: "100%", height: "100%", flex: 1, minHeight: 0, border: "none" }}
             />
           ) : (
             <div style={{ color: "#FFFFFF", padding: 24, textAlign: "center", lineHeight: 1.7 }}>
@@ -524,14 +659,11 @@ function ExamRoom({ sub, onExit }) {
 
         {/* Phiếu trả lời */}
         <div
-          style={{
-            flex: "0 0 400px",
-            maxWidth: "100%",
-            background: "#FFFFFF",
-            borderLeft: "1px solid #CBD5E1",
-            maxHeight: paneHeight,
-            overflowY: "auto",
-          }}
+          style={
+            narrow
+              ? { flex: 1, minHeight: 0, background: "#FFFFFF", overflowY: "auto", WebkitOverflowScrolling: "touch", display: tab === "answer" ? "block" : "none", paddingBottom: "env(safe-area-inset-bottom, 0px)" }
+              : { flex: "0 0 400px", maxWidth: "100%", background: "#FFFFFF", borderLeft: "1px solid #CBD5E1", maxHeight: paneHeight, overflowY: "auto" }
+          }
         >
           <div
             style={{
@@ -611,12 +743,13 @@ function ExamRoom({ sub, onExit }) {
                         selected={answers[item.id]}
                         submitted={submitted}
                         graded={graded}
+                        big={narrow}
                         onPick={(v) => setAnswer(item.id, v)}
                       />
                     ))}
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${narrow ? 96 : 112}px, 1fr))`, gap: 8 }}>
                     {sec.items.map((item) => (
                       <FillCell
                         key={item.id}
@@ -637,7 +770,7 @@ function ExamRoom({ sub, onExit }) {
   );
 }
 
-function ChoiceRow({ item, options, selected, submitted, graded, onPick }) {
+function ChoiceRow({ item, options, selected, submitted, graded, onPick, big }) {
   const right = graded && selected === item.answer;
   const wrong = submitted && graded && selected && !right;
 
@@ -685,8 +818,8 @@ function ChoiceRow({ item, options, selected, submitted, graded, onPick }) {
               onClick={() => onPick(v)}
               disabled={submitted}
               style={{
-                width: 28,
-                height: 28,
+                width: big ? 38 : 28,
+                height: big ? 38 : 28,
                 borderRadius: 6,
                 border: "1px solid #CBD5E1",
                 background: bg,
@@ -729,7 +862,7 @@ function FillCell({ item, value, submitted, onChange }) {
           width: "100%",
           boxSizing: "border-box",
           padding: "5px 6px",
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: 800,
           letterSpacing: 2,
           fontFamily: "monospace",

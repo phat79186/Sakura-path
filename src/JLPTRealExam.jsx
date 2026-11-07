@@ -2,6 +2,17 @@ import React, { useState, useEffect, useRef } from "react";
 import { AUDIO_TRACKS, EXAM_SECTIONS, LEVELS, LEVEL_COLOR } from "./jlptData";
 import { calculateJLPTScaleScore } from "./jlptScoring";
 
+// Màn hình hẹp (điện thoại / tablet dọc): bố cục 1 cột + tab
+function useIsNarrow(bp = 860) {
+  const [n, setN] = useState(() => typeof window !== "undefined" && window.innerWidth < bp);
+  useEffect(() => {
+    const h = () => setN(window.innerWidth < bp);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [bp]);
+  return n;
+}
+
 const PDF_SECTIONS = [
   {
     id: "all",
@@ -363,6 +374,9 @@ function ExamRoom({ onExit }) {
   const [activeAudioIdx, setActiveAudioIdx] = useState(saved?.activeAudioIdx || 0);
   const [pdfOk, setPdfOk] = useState(true);
   const audioRef = useRef(null);
+  const wantPlay = useRef(false);
+  const narrow = useIsNarrow();
+  const [tab, setTab] = useState("exam"); // chỉ dùng khi narrow
 
   const curSec = PDF_SECTIONS.find((s) => s.id === selectedSecId) || PDF_SECTIONS[0];
   const isAudioVisible = curSec.hasAudio;
@@ -427,8 +441,80 @@ function ExamRoom({ onExit }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0F172A", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{
+        minHeight: "100dvh",
+        height: narrow ? "100dvh" : undefined,
+        overflow: narrow ? "hidden" : undefined,
+        background: "#0F172A",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* ── HEADER GỌN CHO MOBILE ── */}
+      {narrow && (
+        <header
+          style={{
+            background: "#0F172A",
+            color: "#FFFFFF",
+            padding: "8px 10px",
+            paddingTop: "calc(8px + env(safe-area-inset-top, 0px))",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={onExit}
+            aria-label="Thoát (tạm dừng)"
+            style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "none", borderRadius: 10, width: 40, height: 40, fontSize: 18, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}
+          >
+            ←
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, color: "#38BDF8", fontWeight: 800, letterSpacing: 0.5 }}>JLPT N5 · PDF GỐC</div>
+            <div style={{ fontSize: 14, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              Đề thi N5 · {curSec.label}
+            </div>
+          </div>
+          {!isSubmitted && (
+            <div style={{ background: "rgba(239,68,68,0.2)", color: "#FCA5A5", padding: "4px 10px", borderRadius: 12, fontWeight: 800, fontSize: 14, border: "1px solid rgba(239,68,68,0.4)", fontFamily: "monospace", flexShrink: 0 }}>
+              {formatTime(secondsLeft)}
+            </div>
+          )}
+          {!isSubmitted ? (
+            <button
+              onClick={() => {
+                if (window.confirm("Bạn có chắc chắn muốn nộp bài thi để chấm điểm theo thang đo JLPT (尺度得点) không?")) {
+                  setIsSubmitted(true);
+                  setTab("answer");
+                }
+              }}
+              style={{ background: "#10B981", color: "#fff", border: "none", borderRadius: 10, height: 40, padding: "0 12px", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}
+            >
+              Nộp
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                clearSession();
+                setUserAnswers({});
+                setIsSubmitted(false);
+                setSecondsLeft(TOTAL_SECONDS);
+                setTab("exam");
+              }}
+              style={{ background: "#3B82F6", color: "#fff", border: "none", borderRadius: 10, height: 40, padding: "0 12px", fontSize: 13, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}
+            >
+              Làm lại
+            </button>
+          )}
+        </header>
+      )}
+
       {/* ── TOP HEADER ── */}
+      {!narrow && (
       <header
         style={{
           background: "#0F172A",
@@ -539,6 +625,7 @@ function ExamRoom({ onExit }) {
           )}
         </div>
       </header>
+      )}
 
       {/* ── BẢNG KẾT QUẢ ĐIỂM SỐ THEO THANG ĐO (尺度得点) KHI ĐÃ NỘP ── */}
       {isSubmitted && (
@@ -548,15 +635,18 @@ function ExamRoom({ onExit }) {
               ? "linear-gradient(135deg, #065F46 0%, #059669 100%)"
               : "linear-gradient(135deg, #991B1B 0%, #DC2626 100%)",
             color: "#FFFFFF",
-            padding: "20px 24px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.3)"
+            padding: narrow ? "12px 14px" : "20px 24px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+            flexShrink: 0,
+            maxHeight: narrow ? "40dvh" : undefined,
+            overflowY: narrow ? "auto" : undefined
           }}
         >
           <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
                 <span style={{ fontSize: 28 }}>{scoreResult.isPassed ? "🎉" : "⚠️"}</span>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>
+                <h2 style={{ margin: 0, fontSize: narrow ? 17 : 24, fontWeight: 900 }}>
                   {scoreResult.isPassed ? "KẾT QUẢ: ĐẬU (合格 - PASSED)" : "KẾT QUẢ: KHÔNG ĐẠT (不合格 - FAILED)"}
                 </h2>
               </div>
@@ -606,19 +696,40 @@ function ExamRoom({ onExit }) {
         </div>
       )}
 
+      {/* ── TAB ĐỀ THI / PHIẾU TRẢ LỜI (MOBILE) ── */}
+      {narrow && (
+        <div role="tablist" style={{ display: "flex", gap: 6, background: "#1E293B", padding: 6, flexShrink: 0 }}>
+          {[
+            ["exam", "📄 Đề thi"],
+            ["answer", `✍️ Phiếu trả lời · ${Object.values(userAnswers).filter(Boolean).length}/${scoreResult.totalQuestions}`],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              style={{ flex: 1, height: 42, borderRadius: 10, border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", background: tab === id ? "#2563EB" : "rgba(255,255,255,0.08)", color: tab === id ? "#FFFFFF" : "#CBD5E1" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── THANH CHỌN FILE PDF ── */}
       <div
         style={{
           background: "#1E293B",
           borderBottom: "1px solid rgba(255,255,255,0.08)",
-          padding: "8px 18px",
-          display: "flex",
+          padding: narrow ? "6px 10px" : "8px 18px",
+          display: narrow && tab !== "exam" ? "none" : "flex",
+          flexShrink: 0,
           gap: 8,
           alignItems: "center",
           overflowX: "auto"
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 800, color: "#94A3B8", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "#94A3B8", whiteSpace: "nowrap", display: narrow ? "none" : "inline" }}>
           CHỌN PHẦN THI (PDF):
         </span>
         {PDF_SECTIONS.map((sec) => {
@@ -631,12 +742,13 @@ function ExamRoom({ onExit }) {
                 background: isActive ? "#2563EB" : "rgba(255,255,255,0.08)",
                 color: isActive ? "#FFFFFF" : "#E2E8F0",
                 border: isActive ? "none" : "1px solid rgba(255,255,255,0.12)",
-                padding: "7px 16px",
+                padding: narrow ? "8px 12px" : "7px 16px",
                 borderRadius: 8,
                 fontWeight: 700,
                 fontSize: 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
+                flexShrink: 0,
                 transition: "all 0.15s"
               }}
             >
@@ -647,7 +759,49 @@ function ExamRoom({ onExit }) {
       </div>
 
       {/* ── TRÌNH PHÁT FILE NGHE (CHỈ XUẤT HIỆN KHI Ở PHẦN NGHE HIỂU HOẶC TOÀN BỘ ĐỀ) ── */}
-      {isAudioVisible && (
+      {isAudioVisible && narrow && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
+            color: "#FFFFFF",
+            padding: "6px 10px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 16 }}>🎧</span>
+          <select
+            value={activeAudioIdx}
+            onChange={(e) => {
+              wantPlay.current = true;
+              setActiveAudioIdx(Number(e.target.value));
+            }}
+            aria-label="Chọn bài nghe"
+            style={{ flex: "0 1 44%", minWidth: 0, height: 36, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 13, background: "#FFFFFF", color: "#1E3A8A", padding: "0 6px" }}
+          >
+            {AUDIO_TRACKS.map((trk, i) => (
+              <option key={i} value={i}>{trk.name}</option>
+            ))}
+          </select>
+          <audio
+            key={activeAudioIdx}
+            ref={audioRef}
+            controls
+            preload="metadata"
+            src={AUDIO_TRACKS[activeAudioIdx]?.file}
+            onLoadedData={() => {
+              if (wantPlay.current && audioRef.current) {
+                wantPlay.current = false;
+                audioRef.current.play().catch(() => {});
+              }
+            }}
+            style={{ flex: 1, minWidth: 0, height: 36 }}
+          />
+        </div>
+      )}
+      {isAudioVisible && !narrow && (
         <div
           style={{
             background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
@@ -706,26 +860,35 @@ function ExamRoom({ onExit }) {
       )}
 
       {/* ── VÙNG CHÍNH: CỘT TRÁI FILE PDF GỐC + CỘT PHẢI PHIẾU ĐÁP ÁN ── */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: "row", flexWrap: "wrap" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", flexDirection: narrow ? "column" : "row", flexWrap: narrow ? "nowrap" : "wrap" }}>
         {/* CỘT TRÁI: FILE PDF GỐC NHÚNG TRỰC TIẾP */}
         <div
-          style={{
-            flex: "1 1 540px",
-            background: "#1E293B",
-            display: "flex",
-            flexDirection: "column",
-            height: isAudioVisible ? "calc(100vh - 170px)" : "calc(100vh - 110px)",
-            position: "relative"
-          }}
+          style={
+            narrow
+              ? { flex: 1, minHeight: 0, background: "#1E293B", display: tab === "exam" ? "flex" : "none", flexDirection: "column", position: "relative" }
+              : { flex: "1 1 540px", background: "#1E293B", display: "flex", flexDirection: "column", height: isAudioVisible ? "calc(100dvh - 170px)" : "calc(100dvh - 110px)", position: "relative" }
+          }
         >
+          {narrow && pdfOk && (
+            <a
+              href={curSec.file}
+              target="_blank"
+              rel="noreferrer"
+              style={{ flexShrink: 0, textAlign: "center", padding: "7px 10px", fontSize: 12, fontWeight: 700, color: "#BAE6FD", background: "#0F172A", textDecoration: "none" }}
+            >
+              ↗ Mở đề PDF ở tab mới (dễ phóng to / cuộn trên điện thoại)
+            </a>
+          )}
           {pdfOk ? (
             <iframe
               key={curSec.file}
-              src={`${curSec.file}#toolbar=1&navpanes=1&scrollbar=1`}
+              src={`${curSec.file}#toolbar=${narrow ? 0 : 1}&navpanes=${narrow ? 0 : 1}&scrollbar=1${narrow ? "&view=FitH" : ""}`}
               title="Đề thi JLPT N5 PDF"
               style={{
                 width: "100%",
                 height: "100%",
+                flex: 1,
+                minHeight: 0,
                 border: "none"
               }}
             />
@@ -740,15 +903,11 @@ function ExamRoom({ onExit }) {
 
         {/* CỘT PHẢI: PHIẾU TRẢ LỜI CỐ ĐỊNH DỄ ĐIỀN */}
         <div
-          style={{
-            flex: "0 0 380px",
-            background: "#FFFFFF",
-            borderLeft: "1px solid #CBD5E1",
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: isAudioVisible ? "calc(100vh - 170px)" : "calc(100vh - 110px)",
-            overflowY: "auto"
-          }}
+          style={
+            narrow
+              ? { flex: 1, minHeight: 0, background: "#FFFFFF", display: tab === "answer" ? "flex" : "none", flexDirection: "column", overflowY: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "env(safe-area-inset-bottom, 0px)" }
+              : { flex: "0 0 380px", background: "#FFFFFF", borderLeft: "1px solid #CBD5E1", display: "flex", flexDirection: "column", maxHeight: isAudioVisible ? "calc(100dvh - 170px)" : "calc(100dvh - 110px)", overflowY: "auto" }
+          }
         >
           <div
             style={{
@@ -804,7 +963,7 @@ function ExamRoom({ onExit }) {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
-                                padding: "4px 8px",
+                                padding: narrow ? "6px 10px" : "4px 8px",
                                 borderRadius: 6,
                                 background: isSubmitted
                                   ? isRight
@@ -839,7 +998,7 @@ function ExamRoom({ onExit }) {
                                 )}
                               </div>
 
-                              <div style={{ display: "flex", gap: 5 }}>
+                              <div style={{ display: "flex", gap: narrow ? 8 : 5 }}>
                                 {[1, 2, 3, 4].map((opt) => {
                                   const isThisSelected = selected === opt;
                                   let btnBg = isThisSelected ? "#2563EB" : "#FFFFFF";
@@ -861,8 +1020,8 @@ function ExamRoom({ onExit }) {
                                       onClick={() => handleSelectAnswer(qKey, opt)}
                                       disabled={isSubmitted}
                                       style={{
-                                        width: 28,
-                                        height: 28,
+                                        width: narrow ? 40 : 28,
+                                        height: narrow ? 40 : 28,
                                         borderRadius: 6,
                                         border: "1px solid #CBD5E1",
                                         background: btnBg,
