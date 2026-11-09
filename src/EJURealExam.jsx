@@ -64,7 +64,7 @@ const formatTime = (secs) => {
 // ══════════════════════════════════════════════════════════════
 // TRANG CHỦ EJU: chọn môn
 // ══════════════════════════════════════════════════════════════
-export default function EJURealExam() {
+export default function EJURealExam({ markLearned }) {
   const [subKey, setSubKey] = useState(null);
   const [history, setHistory] = useState(loadHistory);
   const [session, setSession] = useState(loadSession);
@@ -76,6 +76,7 @@ export default function EJURealExam() {
       <ExamRoom
         key={sub.key}
         sub={sub}
+        markLearned={markLearned}
         onExit={() => {
           setSubKey(null);
           setHistory(loadHistory());
@@ -307,7 +308,7 @@ function SubjectCard({ s, onStart }) {
 // ══════════════════════════════════════════════════════════════
 // PHÒNG THI: PDF bên trái, phiếu trả lời bên phải
 // ══════════════════════════════════════════════════════════════
-function ExamRoom({ sub, onExit }) {
+function ExamRoom({ sub, onExit, markLearned }) {
   // Nếu có phiên đang làm dở của đúng môn này thì khôi phục đáp án + thời gian còn lại
   const [saved] = useState(() => {
     const ss = loadSession();
@@ -358,6 +359,7 @@ function ExamRoom({ sub, onExit }) {
   const handleSubmit = () => {
     if (submitted) return;
     setSubmitted(true);
+    markLearned?.();
     setTab("answer");
     if (graded) {
       try {

@@ -85,13 +85,14 @@ const fmtTime = (secs) => {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 };
 
-export default function JLPTRealExam() {
+export default function JLPTRealExam({ markLearned }) {
   const [selectedLevel, setSelectedLevel] = useState(null); // null: màn hình chờ
   const [session, setSession] = useState(loadSession);
 
   if (selectedLevel === "N5") {
     return (
       <ExamRoom
+        markLearned={markLearned}
         onExit={() => {
           setSelectedLevel(null);
           setSession(loadSession());
@@ -364,7 +365,7 @@ export default function JLPTRealExam() {
 // ══════════════════════════════════════════════════════════════
 // PHÒNG THI CHÍNH THỨC N5
 // ══════════════════════════════════════════════════════════════
-function ExamRoom({ onExit }) {
+function ExamRoom({ onExit, markLearned }) {
   // Khôi phục phiên đang làm dở (nếu có)
   const [saved] = useState(loadSession);
   const [selectedSecId, setSelectedSecId] = useState(saved?.selectedSecId || "all");
@@ -377,6 +378,8 @@ function ExamRoom({ onExit }) {
   const wantPlay = useRef(false);
   const narrow = useIsNarrow();
   const [tab, setTab] = useState("exam"); // chỉ dùng khi narrow
+
+  useEffect(() => { if (isSubmitted) markLearned?.(); }, [isSubmitted, markLearned]);
 
   const curSec = PDF_SECTIONS.find((s) => s.id === selectedSecId) || PDF_SECTIONS[0];
   const isAudioVisible = curSec.hasAudio;

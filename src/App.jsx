@@ -1070,57 +1070,31 @@ function useStreak() {
     } catch {}
     return { streak:0, highest:0, lastLogin:null, learnedToday:false, activeDays:[], bumped:false };
   });
+  const streakRef = useRef(s);
+  useEffect(() => { streakRef.current = s; }, [s]);
   
 
 
   // 👉 cập nhật khi học xong
   const markLearned = useCallback(() => {
-    setS((prev) => {
-      if (prev.learnedToday) return prev;
-
-      const t = todayStr();
-      const y = yestStr();
-
-      let streak = prev.streak;
-      let bumped = false;
-
-      if (!prev.lastLogin || prev.lastLogin === y) {
-        streak = prev.streak + 1;
-        bumped = true;
-      } else if (prev.lastLogin !== t) {
-        streak = 1;
-        bumped = true;
-      }
-
-      const highest = Math.max(streak, prev.highest);
-
-      const ad = [...(prev.activeDays || [])];
-      if (!ad.includes(t)) ad.push(t);
-      if (ad.length > 365) ad.shift();
-
-      const next = {
-        streak,
-        highest,
-        lastLogin: t,
-        learnedToday: true,
-        activeDays: ad,
-        bumped,
-      };
-
-      // 👉 lưu streak
-      localStorage.setItem("sp_streak_v2", JSON.stringify(next));
-
-      // 👉 heatmap
-      try {
-        const hmap = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
-        hmap[t] = Math.min(4, (hmap[t] || 0) + 1);
-        localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
-      } catch (e) {
-        console.error("Heatmap lỗi:", e);
-      }
-
-      return next;
-    });
+    const prev = streakRef.current;
+    if (prev.learnedToday) return;
+    const t = todayStr();
+    const y = yestStr();
+    let streak = prev.streak;
+    const bumped = !prev.lastLogin || prev.lastLogin === y || prev.lastLogin !== t;
+    if (prev.lastLogin !== t) streak = prev.lastLogin === y || !prev.lastLogin ? prev.streak + 1 : 1;
+    const activeDays = [...(prev.activeDays || [])];
+    if (!activeDays.includes(t)) activeDays.push(t);
+    const next = { streak, highest: Math.max(streak, prev.highest), lastLogin: t, learnedToday: true, activeDays: activeDays.slice(-365), bumped };
+    streakRef.current = next;
+    setS(next);
+    try { localStorage.setItem("sp_streak_v2", JSON.stringify(next)); } catch (e) { console.error("Không lưu được streak:", e); }
+    try {
+      const hmap = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
+      hmap[t] = Math.min(4, (Number(hmap[t]) || 0) + 1);
+      localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
+    } catch (e) { console.error("Không lưu được heatmap:", e); }
   }, []);
 
   return { streak: s, markLearned };
@@ -1301,11 +1275,13 @@ function Nav({ page, setPage, streakCount, user }) {
   const isDrawer = w < 1024;      // dưới 1024px dùng menu ngăn kéo thay vì thanh ngang
   const [open, setOpen] = useState(false);   // ngăn kéo mobile
   const [menu, setMenu] = useState(null);    // id nhóm đang mở dropdown
+  const [avatarError, setAvatarError] = useState(false);
   const [dark, toggleDark] = useDarkMode();
   const t = useT();
   const navRef = useRef(null);
   const closeTimer = useRef(null);
   const groups = useMemo(() => buildNavGroups(t), [t]);
+  useEffect(() => setAvatarError(false), [user?.picture]);
 
   const activeGroup = groups.find(g => g.items.some(it => it.id === page));
   const activeGroupId = activeGroup ? activeGroup.id : null;
@@ -1407,12 +1383,11 @@ function Nav({ page, setPage, streakCount, user }) {
 
           {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flexShrink: 0 }} onClick={() => go("home")}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: "linear-gradient(135deg,#38BDF8,#2563EB)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18, boxShadow: "0 0 12px rgba(56,189,248,0.5)"
-            }}>🌸</div>
+            <img src="/sakura-path-mark.png" alt="" style={{
+              width: 40, height: 40, borderRadius: 10,
+              objectFit: "contain", background: "rgba(255,255,255,0.96)",
+              padding: 2, boxShadow: "0 0 12px rgba(236,72,153,0.35)"
+            }} />
             <div>
               <div style={{ color: "white", fontWeight: 900, fontSize: isMob ? 14 : 16, lineHeight: 1, fontFamily: "'Nunito',sans-serif", letterSpacing: "-0.02em" }}>Sakura Path</div>
               {!isMob && <div style={{ color: "rgba(56,189,248,0.7)", fontSize: 9, fontWeight: 600, letterSpacing: "0.08em" }}>JAPANESE LEARNING</div>}
@@ -1580,8 +1555,8 @@ function Nav({ page, setPage, streakCount, user }) {
                 display: "flex", alignItems: "center", justifyContent: "center",
                 overflow: "hidden", cursor: "pointer"
               }} title={user ? t.profileTitle : "Đăng nhập"} aria-label={user ? t.profileTitle : "Đăng nhập"}>
-              {user?.picture
-                ? <img src={user.picture} alt="" style={{ width: 34, height: 34, objectFit: "cover" }} />
+              {user?.picture && !avatarError
+                ? <img src={user.picture} alt="" referrerPolicy="no-referrer" onError={() => setAvatarError(true)} style={{ width: 34, height: 34, objectFit: "cover" }} />
                 : <span style={{ fontSize: user ? 18 : 16 }}>{user ? user.name?.[0] : "👤"}</span>}
             </button>
 
@@ -3221,9 +3196,12 @@ const w = useWidth(); const isMob = w < 640;
   // ── TTS for kana cells ──────────────────────────────────────
   const [playingChar, setPlayingChar] = useState(null);
   const longPressTimer = useRef(null);
+  const longPressTriggered = useRef(false);
+  const speechRequestId = useRef(0);
 
   const playKana = (char, rate = 1.0) => {
     if (!window.speechSynthesis || !char) return;
+    const requestId = ++speechRequestId.current;
     window.speechSynthesis.cancel();
     setPlayingChar(char);
     const utt = new SpeechSynthesisUtterance(char);
@@ -3232,18 +3210,24 @@ const w = useWidth(); const isMob = w < 640;
     const jaVoice = voices.find(v => /kyoko|haruka|mizuki|sakura|female|woman/i.test(v.name) && v.lang.startsWith("ja"))
                  || voices.find(v => v.lang.startsWith("ja"));
     if (jaVoice) utt.voice = jaVoice;
-    utt.onend = () => setPlayingChar(null);
-    utt.onerror = () => setPlayingChar(null);
+    utt.onend = () => { if (speechRequestId.current === requestId) setPlayingChar(null); };
+    utt.onerror = () => { if (speechRequestId.current === requestId) setPlayingChar(null); };
     window.speechSynthesis.speak(utt);
   };
 
   const handleKanaClick = (char, e) => {
-    // double-click → natural speed 1.0 (default)
-    // single click → normal 0.9
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
     playKana(char, 0.9);
   };
   const handleKanaMouseDown = (char) => {
-    longPressTimer.current = setTimeout(() => { playKana(char, 0.5); }, 500);
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      playKana(char, 0.5);
+    }, 500);
   };
   const handleKanaMouseUp = () => {
     clearTimeout(longPressTimer.current);
@@ -3261,6 +3245,13 @@ const w = useWidth(); const isMob = w < 640;
   // ── Per-session scores for unlock gate ──
   const [scores, setScores] = useState({ recognize:null }); // {correct,total}
   const [tab, setTab] = useState("table");
+  const [kanaSection, setKanaSection] = useState("basic");
+  const kanaSections = [
+    { id:"basic", label:"Cơ bản", title:`清音 – Âm cơ bản (${BASIC.filter(k => k.char).length})`, items:BASIC },
+    { id:"dakuten", label:"Dakuten ゛", title:`゛Dakuten – Âm đục (${DAKUTEN.length})`, items:DAKUTEN },
+    { id:"handakuten", label:"Handakuten ゜", title:`゜Handakuten – Âm /p/ (${HANDAKUTEN.length})`, items:HANDAKUTEN },
+    { id:"compound", label:"Âm ghép", title:`拗音 – Âm ghép (${COMPOUND.length})`, items:COMPOUND },
+  ];
 
   // Unlock write tab: recognition ≥ 70%
   const pct = s => s && s.total > 0 ? Math.round(s.correct / s.total * 100) : 0;
@@ -3287,13 +3278,11 @@ const w = useWidth(); const isMob = w < 640;
           ? <div key={i} style={{ borderRadius:10, background:CC.dark?"rgba(255,255,255,0.04)":"#f8f9fa", aspectRatio:"1", border:`1px dashed ${CC.dark?"rgba(255,255,255,0.1)":"#e0e0e0"}` }}/>
           : <div key={i}
               onClick={()=>handleKanaClick(k.char)}
-              onMouseDown={()=>handleKanaMouseDown(k.char)}
-              onMouseUp={handleKanaMouseUp}
-              onMouseLeave={handleKanaMouseUp}
-              onTouchStart={()=>handleKanaMouseDown(k.char)}
-              onTouchEnd={handleKanaMouseUp}
-              onDoubleClick={()=>playKana(k.char, 1.2)}
-              title={`Nhấn: nghe thường • Giữ: chậm • 2×: nhanh`}
+              onPointerDown={()=>handleKanaMouseDown(k.char)}
+              onPointerUp={handleKanaMouseUp}
+              onPointerLeave={handleKanaMouseUp}
+              onPointerCancel={handleKanaMouseUp}
+              title="Nhấn để nghe • Giữ để nghe chậm"
               style={{
                 background: isPlaying
                   ? `linear-gradient(135deg,${accentColor}30,${accentColor}15)`
@@ -3333,7 +3322,7 @@ const w = useWidth(); const isMob = w < 640;
       fontSize:11, color:CC.muted, flexWrap:"wrap"
     }}>
       <span style={{fontSize:14}}>💡</span>
-      <span><strong style={{color:accentColor}}>Nhấn</strong> → nghe thường &nbsp;·&nbsp; <strong style={{color:accentColor}}>Giữ 0.5s</strong> → nghe chậm &nbsp;·&nbsp; <strong style={{color:accentColor}}>Nhấn 2×</strong> → nghe nhanh</span>
+      <span><strong style={{color:accentColor}}>Nhấn một lần</strong> → nghe thường &nbsp;·&nbsp; <strong style={{color:accentColor}}>Giữ 0.5s</strong> → nghe chậm</span>
     </div>
   );
 
@@ -3872,31 +3861,15 @@ correct=true nếu score>=60.`,
         <div>
           {ttsHint}
           <div style={{ display:"flex", gap:4, overflowX:"auto", paddingBottom:4, marginBottom:14, borderBottom:"2px solid #eee" }}>
-            {[{id:"basic",label:"Cơ bản"},{id:"dakuten",label:"Dakuten ゛"},{id:"handakuten",label:"Handakuten ゜"},{id:"compound",label:"Âm ghép"}].map(st=>(
-              <button key={st.id} id={`subtab_${st.id}`} onClick={e=>{
-                document.querySelectorAll("[id^=subtab_]").forEach(b=>{b.style.color=C.muted;b.style.borderBottom="3px solid transparent";b.style.fontWeight="400";});
-                e.target.style.color=accentColor; e.target.style.borderBottom=`3px solid ${accentColor}`; e.target.style.fontWeight="700";
-              }} style={{ background:"none",border:"none",padding:"8px 12px",cursor:"pointer",fontSize:isMob?11:13,color:CC.muted,borderBottom:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap",flexShrink:0,fontWeight:400 }}>
+            {kanaSections.map(st=>(
+              <button key={st.id} type="button" aria-pressed={kanaSection === st.id} onClick={()=>setKanaSection(st.id)} style={{ background:"none",border:"none",padding:"8px 12px",cursor:"pointer",fontSize:isMob?11:13,color:kanaSection===st.id?accentColor:CC.muted,borderBottom:kanaSection===st.id?`3px solid ${accentColor}`:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap",flexShrink:0,fontWeight:kanaSection===st.id?700:400 }}>
                 {st.label}
               </button>
             ))}
           </div>
-          {/* Always show basic by default; subtab buttons filter via JS hack – for simplicity show all */}
           <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:accentColor, marginBottom:8 }}>清音 – Âm cơ bản (46)</div>
-            {renderGrid(BASIC)}
-          </div>
-          <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:accentColor, marginBottom:8 }}>゛Dakuten – Âm đục ({DAKUTEN.length})</div>
-            {renderGrid(DAKUTEN)}
-          </div>
-          <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:accentColor, marginBottom:8 }}>゜Handakuten – Âm /p/ ({HANDAKUTEN.length})</div>
-            {renderGrid(HANDAKUTEN)}
-          </div>
-          <div>
-            <div style={{ fontSize:12, fontWeight:700, color:accentColor, marginBottom:8 }}>拗音 – Âm ghép ({COMPOUND.length})</div>
-            {renderGrid(COMPOUND,3,true)}
+            <div style={{ fontSize:12, fontWeight:700, color:accentColor, marginBottom:8 }}>{kanaSections.find(s=>s.id===kanaSection)?.title}</div>
+            {kanaSection === "compound" ? renderGrid(COMPOUND,3,true) : renderGrid(kanaSections.find(s=>s.id===kanaSection)?.items || BASIC)}
           </div>
           <div style={{ marginTop:20, background:"#fffbeb", border:"1px solid #fde68a", borderRadius:12, padding:"12px 16px", fontSize:12, color:"#92400e" }}>
             💡 Học xong bảng chữ? Nhấn tab <strong>🔍 Nhận diện</strong> để bắt đầu luyện tập!
@@ -17664,6 +17637,7 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
       const colors = { "Xuất sắc":"#10B981", "Tốt":"#38BDF8", "Khá":"#F59E0B", "Cần luyện":"#EF4444" };
       parsed.color = colors[parsed.label] || "#94A3B8";
       setResult(parsed);
+      markLearned?.();
       handleTraceGraduation(parsed.score);
 
       // Update SRS stats
@@ -17682,6 +17656,7 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
       const colors = {"Xuất sắc":"#10B981","Tốt":"#38BDF8","Khá":"#F59E0B","Cần luyện":"#EF4444"};
       const fallbackResult = { score, label, feedback: `Số nét: bạn dùng ${strokeCount}/${kanji.strokes} nét chuẩn.`, color: colors[label], addToReview: score<70 };
       setResult(fallbackResult);
+      markLearned?.();
       handleTraceGraduation(score);
     }
     setChecking(false);
@@ -19866,15 +19841,30 @@ function getLevel(xp) {
   return { ...cur, nextXP: nextLv?.xp ?? cur.xp, progress };
 }
 
+function loadAchievementStats() {
+  const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); } catch { return fallback; } };
+  const stored = read("sp_user_stats", {});
+  const kanji = read("sp_kanji_stats", {});
+  const vocab = read("sp_card_stats", {});
+  const streak = read("sp_streak_v2", {});
+  const jlpt = read("sp_jlpt_history", []);
+  const eju = read("sp_eju_history", []);
+  return {
+    ...stored,
+    kanjiLearned: Math.max(Number(stored.kanjiLearned) || 0, Object.keys(kanji).filter(k => (kanji[k]?.correct || 0) > 0).length),
+    vocabLearned: Math.max(Number(stored.vocabLearned) || 0, Object.keys(vocab).length),
+    streak: Math.max(Number(stored.streak) || 0, Number(streak.streak) || 0),
+    totalLessons: Math.max(Number(stored.totalLessons) || 0, Object.keys(vocab).length + Object.keys(kanji).length, jlpt.length + eju.length),
+  };
+}
+
 function AchievementsPage() {
     const t = useT();
 const CC = useColors();
   const [dark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640;
 
-  const [userStats, setUserStats] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("sp_user_stats") || "{}"); } catch { return {}; }
-  });
+  const [userStats, setUserStats] = useState(loadAchievementStats);
   const [unlocked, setUnlocked] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sp_achievements") || "[]"); } catch { return []; }
   });
@@ -19901,7 +19891,14 @@ const CC = useColors();
       setNewBadge(newlyUnlocked[0]); // show first new badge
       setTimeout(() => setNewBadge(null), 4000);
     }
-  }, [userStats]);
+  }, [userStats, unlocked]);
+
+  useEffect(() => {
+    const refresh = () => setUserStats(loadAchievementStats());
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", refresh);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
+  }, []);
 
   const bgCard = dark ? "rgba(30,41,59,0.95)" : "#FFFFFF";
   const earned = ACHIEVEMENTS_DEF.filter(a => unlocked.includes(a.id));
@@ -24042,12 +24039,12 @@ function LoginModal({ onClose, onSignIn, loading, gsiReady }) {
         }}>×</button>
 
         {/* Logo */}
-        <div style={{
-          width: 72, height: 72, borderRadius: 22, margin: "0 auto 20px",
-          background: "linear-gradient(135deg,#38BDF8,#2563EB)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 36, boxShadow: "0 8px 32px rgba(56,189,248,0.4)"
-        }}>🌸</div>
+        <img src="/sakura-path-mark.png" alt="Logo Sakura Path" style={{
+          display: "block", width: 88, height: 88, objectFit: "contain",
+          borderRadius: 22, margin: "0 auto 20px", padding: 5,
+          background: "rgba(255,255,255,0.96)",
+          boxShadow: "0 8px 32px rgba(236,72,153,0.28)"
+        }} />
 
         <div style={{ fontSize: 22, fontWeight: 900, color: dark ? "#E2E8F0" : "#0F172A", marginBottom: 6, fontFamily: "'Nunito',sans-serif" }}>
           Sakura Path
@@ -24124,6 +24121,8 @@ function ProfilePage({ user, onSignIn, onSignOut, setPage, loading, gsiReady }) 
 const CC = useColors();
   const [dark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640;
+  const [avatarError, setAvatarError] = useState(false);
+  useEffect(() => setAvatarError(false), [user?.picture]);
 
   // Gather stats
   const streakData  = (() => { try { return JSON.parse(localStorage.getItem("sp_streak_v2") || "null"); } catch { return null; } })();
@@ -24258,8 +24257,8 @@ const CC = useColors();
         <div style={{ display: "flex", gap: isMob ? 16 : 24, alignItems: "flex-start", flexWrap: isMob ? "wrap" : "nowrap" }}>
           {/* Avatar */}
           <div style={{ position: "relative", flexShrink: 0 }}>
-            {user.picture ? (
-              <img src={user.picture} alt={user.name}
+            {user.picture && !avatarError ? (
+              <img src={user.picture} alt={user.name} referrerPolicy="no-referrer" onError={() => setAvatarError(true)}
                 style={{ width: isMob ? 72 : 96, height: isMob ? 72 : 96, borderRadius: "50%", border: "3px solid rgba(56,189,248,0.6)", objectFit: "cover", boxShadow: "0 0 24px rgba(56,189,248,0.3)" }} />
             ) : (
               <div style={{ width: isMob ? 72 : 96, height: isMob ? 72 : 96, borderRadius: "50%", background: "linear-gradient(135deg,#38BDF8,#2563EB)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMob ? 32 : 42, border: "3px solid rgba(56,189,248,0.6)" }}>
@@ -24473,6 +24472,24 @@ function SpecializedVocabPage({ initialIndustry = "all" }) {
   const [industry, setIndustry] = useState(initialIndustry);
   const [query, setQuery] = useState("");
   const [openKey, setOpenKey] = useState(null);
+  const [playingKey, setPlayingKey] = useState(null);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const speakWord = (event, key, text) => {
+    event.stopPropagation();
+    if (!window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP";
+    const voices = window.speechSynthesis.getVoices();
+    const japaneseVoice = voices.find(v => v.lang?.toLowerCase().startsWith("ja"));
+    if (japaneseVoice) utterance.voice = japaneseVoice;
+    utterance.onstart = () => setPlayingKey(key);
+    utterance.onend = () => setPlayingKey(null);
+    utterance.onerror = () => setPlayingKey(null);
+    setPlayingKey(key);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const groups = SPECIALIZED_VOCAB.map(g => ({ ...g, words: g.data() }));
   const shown = industry === "all" ? groups : groups.filter(g => g.value === industry);
@@ -24543,9 +24560,13 @@ function SpecializedVocabPage({ initialIndustry = "all" }) {
                     borderLeft: `3px solid ${g.color}`, borderRadius: 12, padding: "12px 14px",
                     cursor: "pointer",
                   }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 20, fontWeight: 900 }}>{w.jp}</span>
                       <span style={{ fontSize: 12, color: SUB }}>{w.rom}</span>
+                      <button type="button" onClick={e => speakWord(e, key, w.jp)} aria-label={`${playingKey === key ? "Đang phát" : "Nghe phát âm"} ${w.jp}`} title="Nghe phát âm tiếng Nhật"
+                        style={{ width: 30, height: 30, display: "inline-flex", alignItems: "center", justifyContent: "center", border: `1px solid ${BORDER}`, borderRadius: 9, background: playingKey === key ? `${g.color}20` : "transparent", color: g.color, cursor: "pointer", fontSize: 15 }}>
+                        {playingKey === key ? "🔊" : "🔈"}
+                      </button>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{w.vn}</div>
                     {open && (
@@ -24604,10 +24625,10 @@ export default function App(){
       case "hiragana":  return <KanaPage type="hiragana"/>;
       case "katakana":  return <KanaPage type="katakana"/>;
       case "grammar":   return <GrammarPage/>;
-      case "jlpt":      return <JLPTRealExam/>;
+      case "jlpt":      return <JLPTRealExam markLearned={markLearned}/>;
       case "import":    return <ImportExportPage/>;
       case "kanji":     return <KanjiWritingPage markLearned={markLearned}/>;
-      case "eju":       return <EJURealExam/>;
+      case "eju":       return <EJURealExam markLearned={markLearned}/>;
       case "game":      return <SentenceBuilderPage/>;
       case "chat":      return <AIConversationPage/>;
       case "ai-answer": return <AIAnswerPage/>;
