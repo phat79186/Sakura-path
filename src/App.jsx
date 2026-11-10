@@ -24578,13 +24578,10 @@ function Footer({setPage}){
       textAlign:"center",
       borderTop:"1px solid rgba(56,189,248,0.1)"
     }}>
-      <div style={{
-        width:40,height:40,borderRadius:12,
-        background:"linear-gradient(135deg,#38BDF8,#2563EB)",
-        display:"inline-flex",alignItems:"center",justifyContent:"center",
-        fontSize:20,marginBottom:10,
-        boxShadow:"0 0 16px rgba(56,189,248,0.4)"
-      }}>🌸</div>
+      <img src="/sakura-path-mark.png" alt="Logo Sakura Path" style={{
+        width:40,height:40,objectFit:"contain",display:"block",margin:"0 auto 10px",
+        filter:"drop-shadow(0 0 10px rgba(56,189,248,0.4))"
+      }} />
       <div style={{color:"white",fontWeight:900,fontSize:15,marginBottom:3,fontFamily:"'Nunito',sans-serif"}}>Sakura Path</div>
       <div style={{color:"rgba(148,163,184,0.6)",fontSize:11,marginBottom:16}}>Học tiếng Nhật · © 2026</div>
       <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap",maxWidth:640,margin:"0 auto"}}>
