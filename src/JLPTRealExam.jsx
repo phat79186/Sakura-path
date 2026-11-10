@@ -376,10 +376,26 @@ function ExamRoom({ onExit, markLearned }) {
   const [pdfOk, setPdfOk] = useState(true);
   const audioRef = useRef(null);
   const wantPlay = useRef(false);
+  const submissionRecorded = useRef(false);
   const narrow = useIsNarrow();
   const [tab, setTab] = useState("exam"); // chỉ dùng khi narrow
 
-  useEffect(() => { if (isSubmitted) markLearned?.(); }, [isSubmitted, markLearned]);
+  useEffect(() => {
+    if (!isSubmitted) {
+      submissionRecorded.current = false;
+      return;
+    }
+    if (submissionRecorded.current) return;
+    submissionRecorded.current = true;
+    markLearned?.();
+    try {
+      const history = JSON.parse(localStorage.getItem("sp_jlpt_history") || "[]");
+      history.unshift({ level:"N5", date:new Date().toISOString(), completed:true });
+      localStorage.setItem("sp_jlpt_history", JSON.stringify(history.slice(0, 50)));
+    } catch (e) {
+      console.error("Không lưu được lịch sử JLPT:", e);
+    }
+  }, [isSubmitted, markLearned]);
 
   const curSec = PDF_SECTIONS.find((s) => s.id === selectedSecId) || PDF_SECTIONS[0];
   const isAudioVisible = curSec.hasAudio;

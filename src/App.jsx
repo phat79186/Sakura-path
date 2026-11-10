@@ -2514,6 +2514,20 @@ function FlashcardPage({markLearned}){
       if (ci >= 0) nd[ci] = updated;
       return nd;
     });
+    try {
+      const cardStats = JSON.parse(localStorage.getItem("sp_card_stats") || "{}");
+      const previous = cardStats[card.jp] || { again:0, hard:0, good:0, easy:0, correct:0, wrong:0 };
+      previous[label] = (previous[label] || 0) + 1;
+      if (quality >= 2) {
+        previous.correct = (previous.correct || 0) + 1;
+        previous.learned = true;
+      } else {
+        previous.wrong = (previous.wrong || 0) + 1;
+      }
+      previous.lastSeen = Date.now();
+      cardStats[card.jp] = previous;
+      localStorage.setItem("sp_card_stats", JSON.stringify(cardStats));
+    } catch (e) { console.error("Không lưu được tiến độ từ vựng:", e); }
     if (!markedRef.current) { markLearned(); markedRef.current=true; }
 
     totalAnswered.current += 1;
@@ -3349,6 +3363,8 @@ const w = useWidth(); const isMob = w < 640;
     useEffect(() => {
       if (sc.total >= TOTAL) {
         setScores(s => ({ ...s, recognize: { correct: sc.correct, total: sc.total } }));
+        const score = Math.round(sc.correct / sc.total * 100);
+        updateAchievementStats({ [isHira ? "hiraganaScore" : "katakanaScore"]: score });
       }
     }, [sc]);
 
@@ -6026,6 +6042,8 @@ function LevelPage({ level, onBack }) {
 
   const updateScore = (section, correct, total) => {
     setScores(s => ({ ...s, [section]: { correct, total } }));
+    if (section === "grammar") updateAchievementStats({ grammarCorrect: correct });
+    if (section === "listening") updateAchievementStats({ listeningDone: 1 });
   };
 
   const TABS = [
@@ -17805,6 +17823,13 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
       setResult(fallbackResult);
       markLearned?.();
       handleTraceGraduation(score);
+      const newStats = { ...kanjiStats };
+      if (!newStats[kanji.k]) newStats[kanji.k] = { correct:0, wrong:0, lastSeen: Date.now() };
+      if (score >= 70) newStats[kanji.k].correct++;
+      else newStats[kanji.k].wrong++;
+      newStats[kanji.k].lastSeen = Date.now();
+      newStats[kanji.k].lastScore = score;
+      saveStats(newStats);
     }
     setChecking(false);
   };
@@ -19982,6 +20007,24 @@ const XP_LEVELS = [
   {lv:30, xp:35000, title:"Kanji Master",     icon:"🏯"},
 ];
 
+function updateAchievementStats(patch) {
+  try {
+    const stats = JSON.parse(localStorage.getItem("sp_user_stats") || "{}");
+    for (const [key, value] of Object.entries(patch)) {
+      if (key === "hiraganaScore" || key === "katakanaScore") {
+        stats[key] = Math.max(Number(stats[key]) || 0, Number(value) || 0);
+      } else {
+        stats[key] = (Number(stats[key]) || 0) + (Number(value) || 0);
+      }
+    }
+    localStorage.setItem("sp_user_stats", JSON.stringify(stats));
+    return stats;
+  } catch (e) {
+    console.error("Không lưu được tiến độ thành tích:", e);
+    return null;
+  }
+}
+
 function getLevel(xp) {
   let cur = XP_LEVELS[0];
   for (const l of XP_LEVELS) { if (xp >= l.xp) cur = l; else break; }
@@ -19998,12 +20041,17 @@ function loadAchievementStats() {
   const streak = read("sp_streak_v2", {});
   const jlpt = read("sp_jlpt_history", []);
   const eju = read("sp_eju_history", []);
+  const learnedVocab = Object.values(vocab).filter(s => s?.learned || (Number(s?.good) || 0) + (Number(s?.easy) || 0) > 0).length;
+  const jlptN5Done = Math.max(Number(stored.jlptN5Done) || 0, jlpt.filter(x => x?.level === "N5").length);
+  const jlptN4Done = Math.max(Number(stored.jlptN4Done) || 0, jlpt.filter(x => x?.level === "N4").length);
   return {
     ...stored,
     kanjiLearned: Math.max(Number(stored.kanjiLearned) || 0, Object.keys(kanji).filter(k => (kanji[k]?.correct || 0) > 0).length),
-    vocabLearned: Math.max(Number(stored.vocabLearned) || 0, Object.keys(vocab).length),
+    vocabLearned: Math.max(Number(stored.vocabLearned) || 0, learnedVocab),
+    jlptN5Done,
+    jlptN4Done,
     streak: Math.max(Number(stored.streak) || 0, Number(streak.streak) || 0),
-    totalLessons: Math.max(Number(stored.totalLessons) || 0, Object.keys(vocab).length + Object.keys(kanji).length, jlpt.length + eju.length),
+    totalLessons: Math.max(Number(stored.totalLessons) || 0, learnedVocab + Object.keys(kanji).length, jlpt.length + eju.length),
   };
 }
 
