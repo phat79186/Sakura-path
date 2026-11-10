@@ -11,6 +11,7 @@ import { EXAM_SECTIONS, LEVEL_DESC as JLPT_DATA_LEVEL_DESC } from "./jlptData";
 import { EJU_SUBJECTS as EJU_DATA_SUBJECTS } from "./ejuData";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import * as XLSX from "xlsx";
 const MILESTONES = [
   {days:7,  msg:"Học rất đều đặn! 💪", emoji:"⭐"},
   {days:30, msg:"Chiến binh học tập! 🔥", emoji:"🏅"},
@@ -4177,7 +4178,7 @@ const w = useWidth(); const isMob = w < 640;
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) throw new Error("File cần ít nhất 2 dòng (header + dữ liệu)");
     const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g,"").trim().toLowerCase());
-    const jpIdx  = headers.findIndex(h => /japanese|jp|tiếng nhật|kanji|日本語/.test(h));
+    const jpIdx  = headers.findIndex(h => /japanese|jp|tiếng nhật|kanji|chữ hán|hán tự|漢字|日本語/.test(h));
     const vnIdx  = headers.findIndex(h => /meaning|vn|nghĩa|vietnamese|việt/.test(h));
     const romIdx = headers.findIndex(h => /romaji|rom|reading|phiên âm/.test(h));
     const exIdx  = headers.findIndex(h => /example|ví dụ|câu|ex/.test(h));
@@ -4206,10 +4207,9 @@ const w = useWidth(); const isMob = w < 640;
       } else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
         // Use SheetJS
         const buf = await file.arrayBuffer();
-        const { read, utils } = await import("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.mjs");
-        const wb  = read(buf, { type:"array" });
+        const wb  = XLSX.read(buf, { type:"array" });
         const ws  = wb.Sheets[wb.SheetNames[0]];
-        const json= utils.sheet_to_json(ws, { defval:"" });
+        const json= XLSX.utils.sheet_to_json(ws, { defval:"" });
         if (!json.length) throw new Error("File Excel trống.");
         // Normalize keys
         const rows = json.map(row => {
@@ -4219,7 +4219,7 @@ const w = useWidth(); const isMob = w < 640;
             return k ? String(row[k]||"") : "";
           };
           return {
-            jp:      get(["japanese","jp","tiếng nhật","kanji","日本語"]),
+            jp:      get(["japanese","jp","tiếng nhật","kanji","chữ hán","hán tự","漢字","日本語"]),
             vn:      get(["meaning","vn","nghĩa","vietnamese","việt"]),
             rom:     get(["romaji","rom","reading","phiên âm"]),
             example: get(["example","ví dụ","câu","ex"]),
@@ -4281,11 +4281,11 @@ const w = useWidth(); const isMob = w < 640;
       <div style={{display:"flex",gap:8,marginBottom:20,background:dark?"rgba(30,58,138,0.15)":"rgba(239,246,255,0.8)",borderRadius:16,padding:5,border:`1px solid ${C2.border}`}}>
         {[{id:"import",icon:"📥",label:"Nhập bộ từ"},{id:"export",icon:"📤",label:"Xuất dữ liệu"}].map(tb=>(
           <button key={tb.id} onClick={()=>setTab(tb.id)}
-            style={{flex:1,background:tab===t.id?"linear-gradient(135deg,#38BDF8,#2563EB)":"transparent",
-              border:"none",color:tab===t.id?"white":C2.muted,
+            style={{flex:1,background:tab===tb.id?"linear-gradient(135deg,#38BDF8,#2563EB)":"transparent",
+              border:"none",color:tab===tb.id?"white":C2.muted,
               borderRadius:12,padding:"10px",fontSize:isMob?13:14,fontWeight:700,cursor:"pointer",
-              boxShadow:tab===t.id?"0 4px 16px rgba(37,99,235,0.4)":"none",fontFamily:"'Nunito',sans-serif"}}>
-            {t.icon} {t.label}
+              boxShadow:tab===tb.id?"0 4px 16px rgba(37,99,235,0.4)":"none",fontFamily:"'Nunito',sans-serif"}}>
+            {tb.icon} {tb.label}
           </button>
         ))}
       </div>
@@ -4467,7 +4467,19 @@ function GuideSection() {
   const CC = useColors();
   const t = useT();
   const [lang] = useLang();
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("sp_guide_open") === "true"; } catch { return false; }
+  });
+  const [visible, setVisible] = useState(() => {
+    try { return localStorage.getItem("sp_guide_visible") !== "false"; } catch { return true; }
+  });
   const [activeStep, setActiveStep] = useState(0);
+  useEffect(() => {
+    try { localStorage.setItem("sp_guide_open", String(open)); } catch {}
+  }, [open]);
+  useEffect(() => {
+    try { localStorage.setItem("sp_guide_visible", String(visible)); } catch {}
+  }, [visible]);
 
   const steps = [
     { icon:"🎯", color:"#38BDF8", title:"Bước 1 · Thiết lập mục tiêu", short:"Chọn cấp độ & đặt mục tiêu hằng ngày",
@@ -4509,10 +4521,14 @@ function GuideSection() {
 
   const stepColors = ["#38BDF8","#10B981","#F59E0B","#7C3AED","#0891B2"];
 
+  if (!visible) return <div style={{ maxWidth:900, margin:"0 auto", padding:isMob?"0 12px 8px":"0 24px 12px", textAlign:"right" }}>
+    <button type="button" onClick={() => setVisible(true)} style={{ border:`1px solid ${CC.border}`, borderRadius:10, padding:"7px 11px", background:dark?"rgba(30,41,59,.7)":"rgba(255,255,255,.75)", color:CC.muted, fontSize:12, fontWeight:700, cursor:"pointer" }}>📖 Hiện hướng dẫn</button>
+  </div>;
+
   return (
     <div style={{maxWidth:900,margin:"0 auto",padding:isMob?"0 12px 4px":"0 24px 8px"}}>
       {/* Collapsed toggle bar */}
-      <button onClick={()=>setOpen(v=>!v)}
+      <button onClick={()=>setOpen(v=>!v)} aria-expanded={open} aria-controls="sakura-path-guide-panel"
         style={{
           width:"100%",background:dark?"linear-gradient(135deg,rgba(30,58,138,0.5),rgba(15,23,42,0.7))":"linear-gradient(135deg,rgba(239,246,255,0.9),rgba(219,234,254,0.7))",
           border:`1.5px solid ${dark?"rgba(56,189,248,0.25)":"rgba(37,99,235,0.2)"}`,
@@ -4535,6 +4551,7 @@ function GuideSection() {
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span role="button" tabIndex={0} aria-label="Ẩn hẳn hướng dẫn" title="Ẩn hẳn hướng dẫn" onClick={e=>{e.stopPropagation();setVisible(false);}} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();e.stopPropagation();setVisible(false);}}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:26,height:26,borderRadius:8,color:CC.muted,fontSize:18,lineHeight:1,cursor:"pointer"}}>×</span>
           {!open && (
             <div style={{display:"flex",gap:4}}>
               {stepColors.map((c,i)=>(
@@ -4548,7 +4565,7 @@ function GuideSection() {
 
       {/* Expanded panel */}
       {open && (
-        <div style={{
+        <div id="sakura-path-guide-panel" style={{
           background:dark?"linear-gradient(180deg,rgba(15,23,42,0.95),rgba(15,23,42,0.9))":"white",
           border:`1.5px solid ${dark?"rgba(56,189,248,0.2)":"rgba(37,99,235,0.15)"}`,
           borderTop:"none",
@@ -17387,6 +17404,125 @@ function KanjiStrokeDiagram({ char, dark, size = 220 }) {
   );
 }
 
+const KANJI_IMPORT_COLUMNS = [
+  { key: "k",       label: "Kanji",   required: true,  aliases: ["kanji", "chữ hán", "hán tự", "漢字", "japanese", "jp"] },
+  { key: "vn",      label: "Meaning", required: true,  aliases: ["meaning", "nghĩa", "vietnamese", "tiếng việt", "vn"] },
+  { key: "on",      label: "On",      required: false, aliases: ["on", "on reading", "on-yomi", "onyomi", "âm on"] },
+  { key: "kun",     label: "Kun",     required: false, aliases: ["kun", "kun reading", "kun-yomi", "kunyomi", "âm kun"] },
+  { key: "strokes", label: "Strokes", required: false, aliases: ["strokes", "nét", "số nét", "so net"] },
+  { key: "hint",    label: "Hint",    required: false, aliases: ["hint", "mẹo nhớ", "ghi nhớ", "note"] },
+];
+
+const normHeader = s => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+function parseKanjiRows(rows) {
+  const findValue = (row, aliases) => {
+    const key = Object.keys(row).find(k => aliases.includes(normHeader(k)));
+    return key ? row[key] : "";
+  };
+  return rows
+    .map(row => {
+      const item = { ex: [] };
+      KANJI_IMPORT_COLUMNS.forEach(col => {
+        const raw = findValue(row, col.aliases);
+        item[col.key] = col.key === "strokes" ? (Number(raw) || 0) : String(raw ?? "").trim();
+      });
+      return item;
+    })
+    .filter(item => item.k && item.vn);
+}
+
+function downloadKanjiTemplate() {
+  const header = KANJI_IMPORT_COLUMNS.map(c => c.label);
+  const sample = [
+    ["日", "Mặt trời, ngày", "ニチ, ジツ", "ひ, -び", 4, "Hình mặt trời có chấm bên trong"],
+    ["月", "Mặt trăng, tháng", "ゲツ, ガツ", "つき", 4, "Hình trăng khuyết"],
+    ["山", "Núi", "サン", "やま", 3, "Ba đỉnh núi nhô lên"],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([header, ...sample]);
+  ws["!cols"] = [{ wch: 8 }, { wch: 22 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 36 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Kanji");
+  XLSX.writeFile(wb, "mau-kanji-sakura-path.xlsx");
+}
+
+function KanjiImportPanel({ onImport }) {
+  const CC = useColors();
+  const inputRef = useRef(null);
+  const [status, setStatus] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const handleFile = async (file) => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const items = parseKanjiRows(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+      if (!items.length) throw new Error("Không tìm thấy dòng hợp lệ. Cần cột Kanji và Meaning.");
+      onImport(items);
+      setStatus({ ok: true, text: `Đã nhập ${items.length} Kanji vào danh sách luyện viết.` });
+    } catch (e) {
+      setStatus({ ok: false, text: e.message || "Định dạng file không hợp lệ." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ background: CC.bgCard, border: `1px solid ${CC.border}`, borderRadius: 18, padding: 18, marginBottom: 20, boxShadow: "0 4px 18px rgba(15,23,42,0.06)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: CC.text }}>📥 Nhập Kanji từ Excel</div>
+          <div style={{ fontSize: 12, color: CC.muted, marginTop: 3 }}>Tải file mẫu, điền dữ liệu rồi nhập lại để đúng định dạng.</div>
+        </div>
+        <button type="button" onClick={downloadKanjiTemplate} style={{ border: "1px solid rgba(99,102,241,0.4)", borderRadius: 10, padding: "8px 14px", color: "#6366F1", background: "transparent", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
+          ⬇ Tải file mẫu
+        </button>
+      </div>
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
+        style={{ marginTop: 14, border: `2px dashed ${dragOver ? "#6366F1" : CC.border}`, borderRadius: 14, padding: "18px 14px", textAlign: "center", cursor: "pointer", background: dragOver ? "rgba(99,102,241,0.08)" : CC.bgMuted, transition: "all .2s" }}
+      >
+        <div style={{ fontSize: 26 }}>📄</div>
+        <div style={{ fontWeight: 800, fontSize: 13, color: CC.text }}>{busy ? "Đang đọc file..." : "Nhấn để chọn hoặc kéo thả file vào đây"}</div>
+        <div style={{ fontSize: 11, color: CC.muted, marginTop: 2 }}>.xlsx · .xls · .csv</div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        aria-label="Chọn file Kanji"
+        style={{ display: "none" }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+      />
+
+      <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {KANJI_IMPORT_COLUMNS.map(c => (
+          <span key={c.key} style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, background: c.required ? "rgba(99,102,241,0.14)" : CC.bgMuted, color: c.required ? "#6366F1" : CC.muted }}>
+            {c.label}{c.required ? " *" : ""}
+          </span>
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color: CC.muted, marginTop: 6 }}>* Bắt buộc. Tên cột không phân biệt chữ hoa/thường.</div>
+
+      {status && (
+        <div role="status" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700, background: status.ok ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)", color: status.ok ? "#059669" : "#DC2626" }}>
+          {status.ok ? "✅" : "⚠️"} {status.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KanjiWritingPage({ markLearned }) {
     const t = useT();
 const CC = useColors();
@@ -17429,6 +17565,17 @@ const CC = useColors();
   const [kanjiStats, setKanjiStats] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sp_kanji_stats") || "{}"); } catch { return {}; }
   });
+  const [customKanji, setCustomKanji] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sp_custom_kanji") || "[]"); } catch { return []; }
+  });
+  const applyKanjiImport = (items) => {
+    const merged = [...customKanji.filter(old => !items.some(i => i.k === old.k)), ...items];
+    localStorage.setItem("sp_custom_kanji", JSON.stringify(merged));
+    setCustomKanji(merged);
+    setKanjiLevel("N5");
+    setFilter("all");
+    setSelectedIdx(0);
+  };
 
   const saveStats = (s) => {
     setKanjiStats(s);
@@ -17438,7 +17585,7 @@ const CC = useColors();
   // Filter kanji list
   const [kanjiLevel, setKanjiLevel] = useState("N5");
   const ALL_KANJI = { N5: KANJI_N5, N4: KANJI_N4, N3: KANJI_N3, N2: KANJI_N2, N1: KANJI_N1 };
-  const activeList = ALL_KANJI[kanjiLevel] || KANJI_N5;
+  const activeList = [...(ALL_KANJI[kanjiLevel] || KANJI_N5), ...customKanji.filter(k => !k.level || k.level === kanjiLevel)];
 
   const filteredKanji = useMemo(() => {
     if (filter === "wrong") return activeList.filter(k => (kanjiStats[k.k]?.wrong||0) > 0);
@@ -17715,6 +17862,8 @@ score: 0-100. label: "Xuất sắc"(≥90)/"Tốt"(≥75)/"Khá"(≥60)/"Cần l
           ))}
         </div>
       </div>
+
+      <KanjiImportPanel onImport={applyKanjiImport} />
 
       {/* Mode tabs */}
       <div style={{ display:"flex", gap:8, marginBottom:20 }}>

@@ -25,28 +25,38 @@ const loadHistory = () => {
 // Phiên thi đang làm dở (để thoát / F5 rồi vào lại vẫn tiếp tục, đồng hồ dừng lúc thoát)
 const SESSION_KEY = "sp_eju_session";
 
-const loadSession = () => {
+const loadSessions = () => {
   try {
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-    const sub = s && EJU_SUBJECTS.find((x) => x.key === s.subKey && x.available);
-    if (!sub || s.submitted || typeof s.secondsLeft !== "number" || s.secondsLeft <= 0) return null;
-    return s;
+    const stored = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    if (!stored) return {};
+    // Migrate the previous single-session format without losing that exam.
+    const sessions = stored.subKey ? { [stored.subKey]: stored } : stored;
+    return Object.fromEntries(Object.entries(sessions).filter(([key, s]) => {
+      const sub = EJU_SUBJECTS.find((x) => x.key === key && x.available);
+      return sub && !s.submitted && typeof s.secondsLeft === "number" && s.secondsLeft > 0;
+    }));
   } catch {
-    return null;
+    return {};
   }
 };
 
 const saveSession = (data) => {
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    const sessions = loadSessions();
+    sessions[data.subKey] = data;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
   } catch {
     /* bỏ qua lỗi lưu */
   }
 };
 
-const clearSession = () => {
+const clearSession = (subKey) => {
   try {
-    localStorage.removeItem(SESSION_KEY);
+    if (!subKey) { localStorage.removeItem(SESSION_KEY); return; }
+    const sessions = loadSessions();
+    delete sessions[subKey];
+    if (Object.keys(sessions).length) localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+    else localStorage.removeItem(SESSION_KEY);
   } catch {
     /* bỏ qua */
   }
@@ -67,7 +77,7 @@ const formatTime = (secs) => {
 export default function EJURealExam({ markLearned }) {
   const [subKey, setSubKey] = useState(null);
   const [history, setHistory] = useState(loadHistory);
-  const [session, setSession] = useState(loadSession);
+  const [sessions, setSessions] = useState(loadSessions);
 
   const sub = subKey ? EJU_SUBJECTS.find((s) => s.key === subKey) : null;
 
@@ -80,7 +90,7 @@ export default function EJURealExam({ markLearned }) {
         onExit={() => {
           setSubKey(null);
           setHistory(loadHistory());
-          setSession(loadSession());
+          setSessions(loadSessions());
         }}
       />
     );
@@ -123,11 +133,13 @@ export default function EJURealExam({ markLearned }) {
         </div>
       </div>
 
-      {session && (() => {
+      {Object.values(sessions).map((session) => {
         const ss = EJU_SUBJECTS.find((x) => x.key === session.subKey);
+        if (!ss) return null;
         const done = Object.values(session.answers || {}).filter((v) => String(v || "").length > 0).length;
         return (
           <div
+            key={session.subKey}
             style={{
               background: "#FEF3C7",
               border: "1px solid #F59E0B",
@@ -159,8 +171,8 @@ export default function EJURealExam({ markLearned }) {
               <button
                 onClick={() => {
                   if (window.confirm("Bỏ bài đang làm dở? Đáp án và thời gian sẽ bị xóa.")) {
-                    clearSession();
-                    setSession(null);
+                    clearSession(session.subKey);
+                    setSessions(loadSessions());
                   }
                 }}
                 style={{ background: "transparent", color: "#92400E", border: "1px solid #D97706", borderRadius: 10, padding: "9px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
@@ -170,7 +182,7 @@ export default function EJURealExam({ markLearned }) {
             </div>
           </div>
         );
-      })()}
+      })}
 
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1E293B", margin: "0 0 6px" }}>Chọn môn thi</h2>
@@ -311,8 +323,7 @@ function SubjectCard({ s, onStart }) {
 function ExamRoom({ sub, onExit, markLearned }) {
   // Nếu có phiên đang làm dở của đúng môn này thì khôi phục đáp án + thời gian còn lại
   const [saved] = useState(() => {
-    const ss = loadSession();
-    return ss && ss.subKey === sub.key ? ss : null;
+    return loadSessions()[sub.key] || null;
   });
   const [answers, setAnswers] = useState(saved ? saved.answers || {} : {});
   const [submitted, setSubmitted] = useState(false);
@@ -339,7 +350,7 @@ function ExamRoom({ sub, onExit, markLearned }) {
   // Lưu liên tục: thoát hoặc F5 thì đồng hồ dừng ở giá trị đã lưu
   useEffect(() => {
     if (submitted) {
-      clearSession();
+      clearSession(sub.key);
     } else {
       saveSession({ subKey: sub.key, answers, secondsLeft, submitted: false });
     }
@@ -403,7 +414,7 @@ function ExamRoom({ sub, onExit, markLearned }) {
   };
 
   const restart = () => {
-    clearSession();
+    clearSession(sub.key);
     setAnswers({});
     setSubmitted(false);
     setSecondsLeft(sub.minutes * 60);
