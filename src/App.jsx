@@ -20837,8 +20837,21 @@ const CC = useColors();
   const [speechSupported] = useState(() => typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition));
   const [speechError, setSpeechError] = useState("");
   const [inputSource, setInputSource] = useState("typed");
+  const [recordingForAssessment, setRecordingForAssessment] = useState(false);
+  const [requestingAudio, setRequestingAudio] = useState(false);
+  const [analyzingPronunciation, setAnalyzingPronunciation] = useState(false);
+  const [pronunciationError, setPronunciationError] = useState("");
+  const [pronunciationResult, setPronunciationResult] = useState(null);
+  const [audioAssessmentSupported] = useState(() => typeof window !== "undefined"
+    && typeof MediaRecorder !== "undefined"
+    && !!navigator.mediaDevices?.getUserMedia);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const recorderRef = useRef(null);
+  const microphoneStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+  const componentActiveRef = useRef(true);
 
   const filtered = DICTATION_SENTENCES.filter(s => s.level === levelFilter);
   const q = filtered[qIdx % filtered.length];
@@ -20897,6 +20910,120 @@ const CC = useColors();
     }
   };
 
+  const analyzeRecordedPronunciation = async (blob, expectedText) => {
+    if (!componentActiveRef.current) return;
+    setAnalyzingPronunciation(true);
+    setPronunciationError("");
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Không đọc được bản ghi âm."));
+        reader.readAsDataURL(blob);
+      });
+      const audioBase64 = dataUrl.split(",")[1] || "";
+      const response = await fetch("/api/pronunciation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioBase64, mimeType: blob.type || "audio/webm", expectedText }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Dịch vụ phân tích phát âm chưa phản hồi được.");
+      if (!componentActiveRef.current) return;
+      setPronunciationResult(result);
+      setInput(result.transcript || "");
+      setInputSource("speech");
+      setChecked(true);
+      setShowText(true);
+      setScore(current => ({ correct: current.correct + (result.score >= 70 ? 1 : 0), total: current.total + 1 }));
+    } catch (error) {
+      if (componentActiveRef.current) setPronunciationError(error.message || "Không phân tích được giọng nói. Hãy thử thu âm lại.");
+    } finally {
+      if (componentActiveRef.current) setAnalyzingPronunciation(false);
+    }
+  };
+
+  const stopPronunciationRecording = () => {
+    clearTimeout(recordingTimerRef.current);
+    recordingTimerRef.current = null;
+    const recorder = recorderRef.current;
+    if (recorder?.state === "recording") recorder.stop();
+  };
+
+  const startPronunciationRecording = async () => {
+    if (!audioAssessmentSupported || requestingAudio || recordingForAssessment || analyzingPronunciation) return;
+    stopSpeechRecognition();
+    setRequestingAudio(true);
+    setPronunciationError("");
+    setPronunciationResult(null);
+    setInput("");
+    setInputSource("speech");
+    try {
+      const expectedText = q.jp;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true },
+      });
+      if (!componentActiveRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      microphoneStreamRef.current = stream;
+      const mimeType = typeof MediaRecorder.isTypeSupported === "function"
+        ? ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find(type => MediaRecorder.isTypeSupported(type))
+        : undefined;
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorderRef.current = recorder;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = event => {
+        if (event.data?.size) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const actualMimeType = recorder.mimeType || audioChunksRef.current[0]?.type || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type:actualMimeType });
+        audioChunksRef.current = [];
+        recorderRef.current = null;
+        microphoneStreamRef.current?.getTracks().forEach(track => track.stop());
+        microphoneStreamRef.current = null;
+        if (componentActiveRef.current) setRecordingForAssessment(false);
+        if (!componentActiveRef.current) return;
+        if (blob.size < 1500) {
+          setPronunciationError("Bản ghi quá ngắn. Hãy giữ micro và đọc trọn câu rồi dừng.");
+          return;
+        }
+        if (blob.size > 2_400_000) {
+          setPronunciationError("Bản ghi quá lớn. Hãy đọc câu trong một lượt ngắn hơn.");
+          return;
+        }
+        analyzeRecordedPronunciation(blob, expectedText);
+      };
+      recorder.onerror = () => {
+        microphoneStreamRef.current?.getTracks().forEach(track => track.stop());
+        microphoneStreamRef.current = null;
+        recorderRef.current = null;
+        if (componentActiveRef.current) {
+          setRecordingForAssessment(false);
+          setPronunciationError("Không ghi được âm thanh từ micro. Hãy thử lại.");
+        }
+      };
+      recorder.start();
+      setRecordingForAssessment(true);
+      recordingTimerRef.current = window.setTimeout(() => {
+        if (recorder.state === "recording") recorder.stop();
+      }, 10_000);
+    } catch (error) {
+      microphoneStreamRef.current?.getTracks().forEach(track => track.stop());
+      microphoneStreamRef.current = null;
+      if (componentActiveRef.current) {
+        const denied = error.name === "NotAllowedError" || error.name === "PermissionDeniedError";
+        setPronunciationError(denied
+          ? "Bạn chưa cấp quyền dùng micro. Hãy cho phép micro trong trình duyệt rồi thử lại."
+          : "Không mở được micro. Hãy kiểm tra thiết bị ghi âm rồi thử lại.");
+      }
+    } finally {
+      if (componentActiveRef.current) setRequestingAudio(false);
+    }
+  };
+
   const play = () => {
     if (!window.speechSynthesis || playing) return;
     window.speechSynthesis.cancel();
@@ -20950,8 +21077,20 @@ const CC = useColors();
   useEffect(() => {
     stopSpeechRecognition();
     setInput(""); setChecked(false); setShowText(false); setPlayCount(0); setSpeechError(""); setInputSource("typed");
+    setPronunciationError(""); setPronunciationResult(null);
   }, [qIdx, levelFilter]);
-  useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
+  useEffect(() => {
+    componentActiveRef.current = true;
+    return () => {
+      componentActiveRef.current = false;
+      clearTimeout(recordingTimerRef.current);
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      microphoneStreamRef.current?.getTracks().forEach(track => track.stop());
+      microphoneStreamRef.current = null;
+    };
+  }, []);
 
   // Diff highlight: compare input chars to answer
   const diffChars = () => {
@@ -20986,7 +21125,7 @@ const CC = useColors();
       {/* Level filter */}
       <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
         {["N5","N4","N3","N2"].map(lv=>(
-          <button key={lv} onClick={()=>{setLevelFilter(lv);setQIdx(0);}}
+          <button key={lv} disabled={requestingAudio||recordingForAssessment||analyzingPronunciation} onClick={()=>{setLevelFilter(lv);setQIdx(0);}}
             style={{ padding:"8px 18px", borderRadius:20, border:`2px solid ${levelFilter===lv?LEVEL_COLOR[lv]:"transparent"}`,
               background:levelFilter===lv?LEVEL_COLOR[lv]+"22":dark?"rgba(30,41,59,0.6)":"rgba(241,245,249,0.9)",
               color:levelFilter===lv?LEVEL_COLOR[lv]:CC.muted, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
@@ -21021,14 +21160,31 @@ const CC = useColors();
         <div style={{ marginBottom:16 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:8 }}>
             <div style={{ fontSize:12, color:CC.muted, fontWeight:700 }}>NÓI LẠI CÂU TIẾNG NHẬT VỪA NGHE:</div>
-            {speechSupported && !checked && (
-              <button type="button" onClick={listeningForSpeech ? stopSpeechRecognition : startSpeechRecognition}
-                aria-pressed={listeningForSpeech}
-                style={{ border:`1px solid ${listeningForSpeech?"rgba(239,68,68,0.5)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
-                  padding:"8px 12px", background:listeningForSpeech?"rgba(239,68,68,0.12)":"rgba(124,58,237,0.08)",
-                  color:listeningForSpeech?"#EF4444":"#7C3AED", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-                {listeningForSpeech ? "⏹ Dừng ghi âm" : "🎙️ Nói câu này"}
-              </button>
+            {!checked && (
+              <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+                {audioAssessmentSupported && (
+                  <button type="button"
+                    onClick={recordingForAssessment ? stopPronunciationRecording : startPronunciationRecording}
+                    disabled={requestingAudio || analyzingPronunciation}
+                    aria-pressed={recordingForAssessment}
+                    style={{ border:`1px solid ${recordingForAssessment?"rgba(239,68,68,0.55)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
+                      padding:"8px 12px", background:recordingForAssessment?"rgba(239,68,68,0.12)":"linear-gradient(135deg,#7C3AED,#4C1D95)",
+                      color:recordingForAssessment?"#EF4444":"white", fontSize:12, fontWeight:800,
+                      cursor:requestingAudio||analyzingPronunciation?"wait":"pointer", fontFamily:"'Nunito',sans-serif", opacity:requestingAudio||analyzingPronunciation?0.7:1 }}>
+                    {requestingAudio ? "⏳ Chờ micro..." : recordingForAssessment ? "⏹ Dừng & bắt lỗi" : "🎙️ Kiểm tra phát âm"}
+                  </button>
+                )}
+                {speechSupported && (
+                  <button type="button" onClick={listeningForSpeech ? stopSpeechRecognition : startSpeechRecognition}
+                    disabled={recordingForAssessment||requestingAudio||analyzingPronunciation}
+                    aria-pressed={listeningForSpeech}
+                    style={{ border:`1px solid ${listeningForSpeech?"rgba(239,68,68,0.5)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
+                      padding:"8px 12px", background:listeningForSpeech?"rgba(239,68,68,0.12)":"rgba(124,58,237,0.08)",
+                      color:listeningForSpeech?"#EF4444":"#7C3AED", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
+                    {listeningForSpeech ? "⏹ Dừng nhận diện" : "🗣️ Chỉ chuyển giọng nói thành chữ"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
           <textarea ref={inputRef} value={input} onChange={e=>{setInput(e.target.value);setInputSource("typed");}}
@@ -21043,8 +21199,14 @@ const CC = useColors();
               transition:"border 0.3s" }}
           />
           {listeningForSpeech && <div role="status" style={{ marginTop:6, color:"#7C3AED", fontSize:12, fontWeight:700 }}>🔴 Đang nghe... Hãy nói rõ câu tiếng Nhật.</div>}
+          {requestingAudio && <div role="status" style={{ marginTop:6, color:"#7C3AED", fontSize:12, fontWeight:700 }}>Đang chờ quyền micro…</div>}
+          {recordingForAssessment && <div role="status" style={{ marginTop:6, color:"#DC2626", fontSize:12, fontWeight:700 }}>🔴 Đang ghi âm. Đọc trọn câu trong tối đa 10 giây rồi bấm “Dừng & bắt lỗi”.</div>}
+          {analyzingPronunciation && <div role="status" style={{ marginTop:6, color:"#7C3AED", fontSize:12, fontWeight:700 }}>🤖 AI đang nghe và kiểm tra cách phát âm…</div>}
           {speechError && <div role="status" style={{ marginTop:6, color:"#DC2626", fontSize:12 }}>{speechError}</div>}
+          {pronunciationError && <div role="status" style={{ marginTop:6, color:"#DC2626", fontSize:12 }}>{pronunciationError}</div>}
           {inputSource === "speech" && input && !checked && <div style={{ marginTop:6, color:CC.muted, fontSize:11 }}>Văn bản nhận diện sẽ hiện ở đây; bạn có thể sửa lại trước khi kiểm tra.</div>}
+          {audioAssessmentSupported && !checked && <div style={{ marginTop:6, color:CC.muted, fontSize:11 }}>Bản ghi tối đa 10 giây chỉ được gửi tới AI để phân tích khi bạn bấm “Kiểm tra phát âm”; ứng dụng không lưu bản ghi.</div>}
+          {!audioAssessmentSupported && <div style={{ marginTop:6, color:CC.muted, fontSize:11 }}>Thiết bị hoặc trình duyệt chưa hỗ trợ ghi âm để AI bắt lỗi phát âm. Bạn vẫn có thể dùng nhận diện giọng nói hoặc nhập câu.</div>}
         </div>
 
         {/* Diff highlight (after check) */}
@@ -21055,6 +21217,28 @@ const CC = useColors();
               <div style={{ marginBottom:8, padding:"9px 12px", borderRadius:10, background:dark?"rgba(124,58,237,0.14)":"rgba(124,58,237,0.07)", color:CC.text, fontSize:12 }}>
                 <strong>Độ khớp bản nhận diện: {speechMatchPercent}%</strong>
                 <div style={{ marginTop:3, color:CC.muted }}>Đây là độ khớp giữa lời nói được chuyển thành chữ và câu mẫu; kết quả phụ thuộc vào micro và bộ nhận diện của trình duyệt.</div>
+              </div>
+            )}
+            {pronunciationResult && (
+              <div style={{ marginBottom:10, padding:"12px 14px", borderRadius:12, background:dark?"rgba(124,58,237,0.14)":"rgba(124,58,237,0.07)", border:`1px solid ${dark?"rgba(167,139,250,0.25)":"rgba(124,58,237,0.15)"}` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:5 }}>
+                  <strong style={{ color:CC.text, fontSize:13 }}>🎧 Đánh giá phát âm từ bản ghi</strong>
+                  <span style={{ color:pronunciationResult.score>=80?"#059669":pronunciationResult.score>=60?"#D97706":"#DC2626", fontWeight:900, fontSize:14 }}>
+                    {pronunciationResult.score}/100 · độ tin cậy {pronunciationResult.confidence==="high"?"cao":pronunciationResult.confidence==="medium"?"vừa":"thấp"}
+                  </span>
+                </div>
+                <div style={{ color:CC.text, fontSize:12, lineHeight:1.6 }}>{pronunciationResult.summary}</div>
+                {pronunciationResult.issues?.length > 0 ? (
+                  <div style={{ display:"grid", gap:7, marginTop:9 }}>
+                    {pronunciationResult.issues.map((issue, index) => (
+                      <div key={`${issue.expected}-${index}`} style={{ padding:"8px 10px", borderRadius:9, background:dark?"rgba(15,23,42,0.45)":"rgba(255,255,255,0.75)", fontSize:12 }}>
+                        <div style={{ color:"#DC2626", fontWeight:800 }}>{issue.type}: {issue.expected}{issue.heard?` (AI nghe gần như “${issue.heard}”)`:""}</div>
+                        <div style={{ color:CC.text, marginTop:3 }}>{issue.feedback}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div style={{ color:"#059669", fontSize:12, fontWeight:700, marginTop:7 }}>AI chưa nghe thấy lỗi phát âm rõ ràng trong câu này.</div>}
+                <div style={{ color:CC.muted, fontSize:10, marginTop:8 }}>Đây là nhận xét ước lượng từ AI dựa trên bản ghi, không thay thế đánh giá của giáo viên phát âm.</div>
               </div>
             )}
             <div style={{ background:dark?"rgba(15,23,42,0.6)":"rgba(248,250,252,0.95)", borderRadius:12, padding:"12px 14px", fontSize:isMob?16:18, fontFamily:"'Noto Sans JP', sans-serif", lineHeight:2 }}>
@@ -21070,7 +21254,7 @@ const CC = useColors();
                 </span>
               ))}
             </div>
-            {inputSource === "speech" && <div style={{ marginTop:7, fontSize:11, color:CC.muted }}>Các ký tự được đánh dấu là chỗ lời nhận diện khác câu mẫu để bạn nghe và luyện lại. Bài này chưa chấm ngữ điệu hoặc cao độ giọng.</div>}
+            {inputSource === "speech" && !pronunciationResult && <div style={{ marginTop:7, fontSize:11, color:CC.muted }}>Các ký tự được đánh dấu là chỗ lời nhận diện khác câu mẫu; đây chỉ là so khớp văn bản, chưa phải đánh giá âm thanh.</div>}
             <div style={{ marginTop:8, fontSize:13, color:CC.muted }}>🇻🇳 {q.vn}</div>
             {input.replace(/[\s、。，．！？!?]/g, "") !== q.jp.replace(/[\s、。，．！？!?]/g, "") && (
               <div style={{ marginTop:6, fontSize:13 }}>
@@ -21087,7 +21271,7 @@ const CC = useColors();
               style={{ flex:1, padding:"11px", borderRadius:12, border:`1px solid rgba(124,58,237,0.3)`, background:"transparent", color:"#A855F7", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
               🔁 Nghe lại
             </button>
-            <button onClick={checkAnswer} disabled={!input.trim()}
+            <button onClick={checkAnswer} disabled={!input.trim()||requestingAudio||recordingForAssessment||analyzingPronunciation}
               style={{ flex:2, padding:"11px", borderRadius:12, border:"none",
                 background:!input.trim()?"rgba(148,163,184,0.2)":"linear-gradient(135deg,#7C3AED,#4C1D95)",
                 color:!input.trim()?CC.muted:"white", fontSize:13, fontWeight:800, cursor:!input.trim()?"not-allowed":"pointer",
