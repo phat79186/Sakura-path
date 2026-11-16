@@ -20833,10 +20833,69 @@ const CC = useColors();
   const [score, setScore]   = useState({ correct:0, total:0 });
   const [playCount, setPlayCount] = useState(0);
   const [showText, setShowText]  = useState(false);
+  const [listeningForSpeech, setListeningForSpeech] = useState(false);
+  const [speechSupported] = useState(() => typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+  const [speechError, setSpeechError] = useState("");
+  const [inputSource, setInputSource] = useState("typed");
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const filtered = DICTATION_SENTENCES.filter(s => s.level === levelFilter);
   const q = filtered[qIdx % filtered.length];
+
+  const stopSpeechRecognition = () => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (recognition) {
+      try { recognition.stop(); } catch {}
+    }
+    setListeningForSpeech(false);
+  };
+
+  const startSpeechRecognition = () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      setSpeechError("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Bạn có thể gõ câu vào ô bên dưới.");
+      return;
+    }
+    setSpeechError("");
+    setInput("");
+    setInputSource("speech");
+    try {
+      const recognition = new Recognition();
+      recognition.lang = "ja-JP";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => setListeningForSpeech(true);
+      recognition.onresult = event => {
+        const transcript = Array.from(event.results, result => result[0]?.transcript || "").join("").trim();
+        setInput(transcript);
+      };
+      recognition.onerror = event => {
+        const messages = {
+          "not-allowed": "Bạn chưa cấp quyền dùng micro. Hãy cho phép micro trong trình duyệt rồi thử lại.",
+          "service-not-allowed": "Dịch vụ nhận diện giọng nói đang bị trình duyệt chặn.",
+          "no-speech": "Chưa nhận được giọng nói. Hãy thử nói rõ hơn và gần micro hơn.",
+          "audio-capture": "Không tìm thấy micro. Hãy kiểm tra thiết bị ghi âm.",
+          "network": "Không thể kết nối dịch vụ nhận diện giọng nói. Hãy kiểm tra mạng rồi thử lại.",
+          "language-not-supported": "Trình duyệt không hỗ trợ nhận diện tiếng Nhật trên thiết bị này."
+        };
+        setSpeechError(messages[event.error] || "Không nhận diện được giọng nói. Hãy thử lại hoặc nhập bằng bàn phím.");
+        setListeningForSpeech(false);
+      };
+      recognition.onend = () => {
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+        setListeningForSpeech(false);
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setListeningForSpeech(false);
+      setSpeechError("Không thể khởi động micro. Hãy kiểm tra quyền truy cập rồi thử lại.");
+    }
+  };
 
   const play = () => {
     if (!window.speechSynthesis || playing) return;
@@ -20849,27 +20908,56 @@ const CC = useColors();
     inputRef.current?.focus();
   };
 
+  const normalizeJapanese = value => value.normalize("NFKC").replace(/[\s、。，．！？!?]/g, "");
+  const getMatchPercent = (expectedText, answerText) => {
+    const expected = [...normalizeJapanese(expectedText)];
+    const answer = [...normalizeJapanese(answerText)];
+    if (!expected.length) return 0;
+    let previous = Array.from({ length: answer.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= expected.length; i++) {
+      const current = [i];
+      for (let j = 1; j <= answer.length; j++) {
+        current[j] = Math.min(
+          current[j - 1] + 1,
+          previous[j] + 1,
+          previous[j - 1] + (expected[i - 1] === answer[j - 1] ? 0 : 1)
+        );
+      }
+      previous = current;
+    }
+    return Math.max(0, Math.round((1 - previous[answer.length] / expected.length) * 100));
+  };
+
   const checkAnswer = () => {
     if (!input.trim()) return;
+    stopSpeechRecognition();
     setChecked(true);
-    const correct = input.trim() === q.jp;
+    const matchPercent = getMatchPercent(q.jp, input);
+    const correct = inputSource === "speech" ? matchPercent >= 85 : normalizeJapanese(input) === normalizeJapanese(q.jp);
     setScore(s => ({ correct: s.correct+(correct?1:0), total: s.total+1 }));
     setShowText(true);
   };
 
   const nextQ = () => {
+    stopSpeechRecognition();
     setInput(""); setChecked(false); setShowText(false); setPlayCount(0);
+    setSpeechError(""); setInputSource("typed");
     window.speechSynthesis?.cancel();
     setQIdx(i => (i+1) % filtered.length);
     setTimeout(()=>inputRef.current?.focus(), 100);
   };
 
-  useEffect(() => { setInput(""); setChecked(false); setShowText(false); setPlayCount(0); }, [qIdx, levelFilter]);
+  useEffect(() => {
+    stopSpeechRecognition();
+    setInput(""); setChecked(false); setShowText(false); setPlayCount(0); setSpeechError(""); setInputSource("typed");
+  }, [qIdx, levelFilter]);
+  useEffect(() => () => { recognitionRef.current?.abort(); recognitionRef.current = null; }, []);
 
   // Diff highlight: compare input chars to answer
   const diffChars = () => {
-    const ans = q.jp.split("");
-    const inp = input.split("");
+    const punctuation = /[\s、。，．！？!?]/g;
+    const ans = q.jp.replace(punctuation, "").split("");
+    const inp = input.replace(punctuation, "").split("");
     return ans.map((ch, i) => ({
       char: ch,
       status: inp[i] === ch ? "ok" : inp[i] === undefined ? "missing" : "wrong",
@@ -20879,6 +20967,7 @@ const CC = useColors();
 
   const bgCard = dark?"rgba(30,41,59,0.95)":"#FFFFFF";
   const accuracy = score.total > 0 ? Math.round(score.correct/score.total*100) : 0;
+  const speechMatchPercent = getMatchPercent(q.jp, input);
 
   return (
     <div style={{ maxWidth:720, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
@@ -20928,12 +21017,23 @@ const CC = useColors();
           </div>
         </div>
 
-        {/* Input */}
+        {/* Voice recognition and text fallback */}
         <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:12, color:CC.muted, fontWeight:700, marginBottom:8 }}>GÕ LẠI CÂU VỪA NGHE:</div>
-          <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:8 }}>
+            <div style={{ fontSize:12, color:CC.muted, fontWeight:700 }}>NÓI LẠI CÂU TIẾNG NHẬT VỪA NGHE:</div>
+            {speechSupported && !checked && (
+              <button type="button" onClick={listeningForSpeech ? stopSpeechRecognition : startSpeechRecognition}
+                aria-pressed={listeningForSpeech}
+                style={{ border:`1px solid ${listeningForSpeech?"rgba(239,68,68,0.5)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
+                  padding:"8px 12px", background:listeningForSpeech?"rgba(239,68,68,0.12)":"rgba(124,58,237,0.08)",
+                  color:listeningForSpeech?"#EF4444":"#7C3AED", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
+                {listeningForSpeech ? "⏹ Dừng ghi âm" : "🎙️ Nói câu này"}
+              </button>
+            )}
+          </div>
+          <textarea ref={inputRef} value={input} onChange={e=>{setInput(e.target.value);setInputSource("typed");}}
             disabled={checked}
-            placeholder="日本語で入力してください..."
+            placeholder={speechSupported ? "Bấm ‘Nói câu này’ hoặc nhập tiếng Nhật tại đây..." : "Trình duyệt chưa hỗ trợ nhận diện giọng nói; bạn có thể nhập tiếng Nhật tại đây..."}
             rows={2}
             style={{ width:"100%", padding:"12px 14px", borderRadius:12,
               border:`1.5px solid ${checked?(input===q.jp?"rgba(16,185,129,0.5)":"rgba(239,68,68,0.4)"):"rgba(124,58,237,0.3)"}`,
@@ -20942,12 +21042,21 @@ const CC = useColors();
               resize:"none", outline:"none", boxSizing:"border-box",
               transition:"border 0.3s" }}
           />
+          {listeningForSpeech && <div role="status" style={{ marginTop:6, color:"#7C3AED", fontSize:12, fontWeight:700 }}>🔴 Đang nghe... Hãy nói rõ câu tiếng Nhật.</div>}
+          {speechError && <div role="status" style={{ marginTop:6, color:"#DC2626", fontSize:12 }}>{speechError}</div>}
+          {inputSource === "speech" && input && !checked && <div style={{ marginTop:6, color:CC.muted, fontSize:11 }}>Văn bản nhận diện sẽ hiện ở đây; bạn có thể sửa lại trước khi kiểm tra.</div>}
         </div>
 
         {/* Diff highlight (after check) */}
         {checked && showText && (
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:11, color:CC.muted, fontWeight:700, marginBottom:8 }}>PHÂN TÍCH LỖI:</div>
+            <div style={{ fontSize:11, color:CC.muted, fontWeight:700, marginBottom:8 }}>{inputSource === "speech" ? "KẾT QUẢ NHẬN DIỆN VÀ ĐỐI CHIẾU:" : "PHÂN TÍCH LỖI:"}</div>
+            {inputSource === "speech" && (
+              <div style={{ marginBottom:8, padding:"9px 12px", borderRadius:10, background:dark?"rgba(124,58,237,0.14)":"rgba(124,58,237,0.07)", color:CC.text, fontSize:12 }}>
+                <strong>Độ khớp bản nhận diện: {speechMatchPercent}%</strong>
+                <div style={{ marginTop:3, color:CC.muted }}>Đây là độ khớp giữa lời nói được chuyển thành chữ và câu mẫu; kết quả phụ thuộc vào micro và bộ nhận diện của trình duyệt.</div>
+              </div>
+            )}
             <div style={{ background:dark?"rgba(15,23,42,0.6)":"rgba(248,250,252,0.95)", borderRadius:12, padding:"12px 14px", fontSize:isMob?16:18, fontFamily:"'Noto Sans JP', sans-serif", lineHeight:2 }}>
               {diffChars().map((d,i) => (
                 <span key={i} style={{
@@ -20961,8 +21070,9 @@ const CC = useColors();
                 </span>
               ))}
             </div>
+            {inputSource === "speech" && <div style={{ marginTop:7, fontSize:11, color:CC.muted }}>Các ký tự được đánh dấu là chỗ lời nhận diện khác câu mẫu để bạn nghe và luyện lại. Bài này chưa chấm ngữ điệu hoặc cao độ giọng.</div>}
             <div style={{ marginTop:8, fontSize:13, color:CC.muted }}>🇻🇳 {q.vn}</div>
-            {input !== q.jp && (
+            {input.replace(/[\s、。，．！？!?]/g, "") !== q.jp.replace(/[\s、。，．！？!?]/g, "") && (
               <div style={{ marginTop:6, fontSize:13 }}>
                 <span style={{ color:CC.muted }}>✅ Đáp án đúng: </span>
                 <span style={{ fontFamily:"'Noto Sans JP',sans-serif", color:"#10B981", fontWeight:700 }}>{q.jp}</span>
