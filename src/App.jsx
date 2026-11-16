@@ -148,7 +148,7 @@ const T = {
     navHome:"Trang chủ", navStreak:"Streak",
     navScript:"Chữ Nhật", navHiragana:"Hiragana", navKatakana:"Katakana", navKanji:"Kanji", navRadical:"Bộ thủ",
     navStudy:"Học tập", navFlashcard:"Flashcard", navGrammar:"Ngữ pháp", navJlpt:"JLPT", navEju:"EJU",
-    navSkill:"Kỹ năng", navSpeaking:"Nói", navListening:"Nghe", navReading:"Đọc", navDictation:"Chính tả",
+    navSkill:"Kỹ năng", navSpeaking:"Nói", navListening:"Nghe", navReading:"Đọc", navDictation:"Nghe - Viết",
     navAI:"AI", navChat:"AI Chat", navAIAnswer:"AI giải đáp", navAnalysis:"Phân tích",
     navOther:"Khác", navGame:"Ghép câu", navStory:"Truyện", navNews:"Tin tức", navCulture:"Văn hóa",
     navMap:"Tiến trình", navAchieve:"Thành tích", navHeatmap:"Heatmap", navMini:"1 phút",
@@ -230,7 +230,7 @@ const T = {
     // Story
     storyTitle:"Đọc truyện ngắn",
     // Dictation
-    dictTitle:"Chính tả tiếng Nhật",
+    dictTitle:"Luyện nghe và viết lại",
     // Analysis
     analysisTitle:"Phân tích AI",
   },
@@ -243,7 +243,7 @@ const T = {
     navHome:"Home", navStreak:"Streak",
     navScript:"Japanese Script", navHiragana:"Hiragana", navKatakana:"Katakana", navKanji:"Kanji", navRadical:"Radicals",
     navStudy:"Study", navFlashcard:"Flashcard", navGrammar:"Grammar", navJlpt:"JLPT", navEju:"EJU",
-    navSkill:"Skills", navSpeaking:"Speaking", navListening:"Listening", navReading:"Reading", navDictation:"Dictation",
+    navSkill:"Skills", navSpeaking:"Speaking", navListening:"Listening", navReading:"Reading", navDictation:"Listen & Write",
     navAI:"AI", navChat:"AI Chat", navAIAnswer:"AI Tutor", navAnalysis:"Analysis",
     navOther:"More", navGame:"Build Sentence", navStory:"Stories", navNews:"News", navCulture:"Culture",
     navMap:"Progress", navAchieve:"Achievements", navHeatmap:"Heatmap", navMini:"1 min",
@@ -325,7 +325,7 @@ const T = {
     // Story
     storyTitle:"Short Stories",
     // Dictation
-    dictTitle:"Japanese Dictation",
+    dictTitle:"Japanese listening and writing practice",
     // Analysis
     analysisTitle:"AI Analysis",
   }
@@ -4904,7 +4904,7 @@ function HomePage({setPage, streak}){
       badge:"🎯",label:"4 Kỹ Năng",sub:"Nghe · Nói · Đọc · Viết",
       accent:"#8B5CF6",
       items:[
-        {icon:"✍️",title:"Chính Tả",tag:"N5→N3",desc:"Nghe → gõ lại · highlight lỗi từng ký tự",page:"dictation",color:"#EC4899"},
+        {icon:"✍️",title:"Nghe & Viết Lại",tag:"N5→N3",desc:"Nghe câu tiếng Nhật rồi gõ lại · xem lỗi từng ký tự",page:"dictation",color:"#EC4899"},
         {icon:"📚",title:"Đọc Truyện",tag:"N5+",desc:"3-5 câu · furigana · bấm từ xem nghĩa",page:"story",color:"#BE185D"},
         {icon:"💬",title:"AI Hội Thoại",tag:"AI",desc:"Chat tiếng Nhật · AI sửa lỗi real-time",page:"chat",color:"#0EA5E9"},
       ]
@@ -20885,8 +20885,8 @@ const CC = useColors();
       {/* Header */}
       <div style={{ background:"linear-gradient(135deg,#2E1065,#5B21B6,#7C3AED)", borderRadius:24, padding:isMob?"18px":"28px 36px", color:"white", marginBottom:24, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:-20, right:-10, fontSize:120, opacity:0.07 }}>🎙️</div>
-        <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>DICTATION · NGHE VIẾT</div>
-        <div style={{ fontSize:isMob?20:26, fontWeight:900, marginBottom:6 }}>🎙️ Dictation Mode</div>
+        <div style={{ fontSize:12, fontWeight:700, letterSpacing:2, opacity:0.7, marginBottom:4 }}>NGHE VÀ VIẾT LẠI</div>
+        <div style={{ fontSize:isMob?20:26, fontWeight:900, marginBottom:6 }}>🎙️ Luyện nghe và viết lại</div>
         <div style={{ fontSize:13, opacity:0.8, marginBottom:14 }}>Nghe câu tiếng Nhật → Gõ lại chính xác → Highlight lỗi</div>
         <div style={{ display:"flex", gap:12 }}>
           <div style={{ background:"rgba(255,255,255,0.15)", borderRadius:12, padding:"6px 14px", fontSize:12, fontWeight:700 }}>✅ {score.correct}/{score.total}</div>
