@@ -862,10 +862,9 @@ if (typeof document !== "undefined") {
       .heatmap-scroll {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        cursor: grab;
       }
-      .heatmap-scroll:active { cursor: grabbing; }
-      .heatmap-scroll::-webkit-scrollbar { display: none; }
+      .heatmap-scroll::-webkit-scrollbar { height: 7px; }
+      .heatmap-scroll::-webkit-scrollbar-thumb { background: rgba(22,163,74,0.35); border-radius: 99px; }
 
       /* ════ MOBILE FIX 13: Question navigator scroll */
       .question-nav {
@@ -1056,9 +1055,10 @@ if (typeof document !== "undefined") {
 }
 
 
-const todayStr = () => new Date().toISOString().slice(0,10);
-const yestStr  = () => { const d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); };
-const nDaysAgo = n => { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+const toLocalDateKey = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+const todayStr = () => toLocalDateKey(new Date());
+const yestStr  = () => { const d=new Date(); d.setDate(d.getDate()-1); return toLocalDateKey(d); };
+const nDaysAgo = n => { const d=new Date(); d.setDate(d.getDate()-n); return toLocalDateKey(d); };
 
 function useStreak() {
   const [s, setS] = useState(() => {
@@ -3919,16 +3919,11 @@ correct=true nếu score>=60.`,
 // GRAMMAR
 // ════════════════════════════════════════
 function GrammarPage(){
-    const t = useT();
 const w=useWidth();const isMob=w<640;
   const [dark] = useDarkMode();
   const CC=useColors();
   const [grammarTab, setGrammarTab] = useState("N5");
   const [sel,setSel]=useState(0);
-  const [kanji,setKanji]=useState(null);
-  const [kanjiLoading,setKanjiLoading]=useState(false);
-  const [contextEx,setContextEx]=useState(null);
-  const [ctxLoading,setCtxLoading]=useState(false);
   const ALL_GRAMMAR = useMemo(() => ({
     N5: [...GRAMMAR_N5],
     N4: GRAMMAR_N4,
@@ -3943,61 +3938,21 @@ const w=useWidth();const isMob=w<640;
     ? "linear-gradient(145deg,rgba(15,23,42,0.95),rgba(30,58,138,0.3))"
     : "white";
 
-  const fetchKanji = async (pattern) => {
-    setKanjiLoading(true); setKanji(null); setContextEx(null);
-    try {
-      const res = await fetch("/api/claude",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:600,
-          system:`Bạn là chuyên gia Hán tự Nhật. Trả lời JSON thuần không markdown:
-{"kanji_parts":[{"char":"ký tự","meaning":"nghĩa","on":"âm on","kun":"âm kun"}],"logic":"giải thích logic ghép chữ","memory_tip":"mẹo nhớ sáng tạo","level":"N5/N4/N3","contexts":["ví dụ manga","ví dụ đời thực","ví dụ học đường"]}`,
-          messages:[{role:"user",content:`Phân tích cấu trúc Kanji trong mẫu ngữ pháp: "${pattern}"`}]
-        })
-      });
-      const data = await res.json();
-      const raw = data.content?.[0]?.text||"{}";
-      setKanji(JSON.parse(raw.replace(/```json|```/g,"").trim()));
-    } catch(e) { setKanji({error:"Không tải được phân tích Kanji."}); }
-    setKanjiLoading(false);
-  };
-
-  const fetchContext = async (pattern, meaning) => {
-    setCtxLoading(true); setContextEx(null);
-    try {
-      const res = await fetch("/api/claude",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:500,
-          system:`Trả lời JSON thuần không markdown:
-{"examples":[{"context":"Manga/Anime/Học đường/Đời sống/Du học","nuance":"Vui vẻ|Trang trọng|Thân mật|Lịch sự","jp":"câu ví dụ","vn":"nghĩa tiếng Việt","note":"ghi chú sắc thái"}]}`,
-          messages:[{role:"user",content:`Tạo 4 ví dụ thực tế cho mẫu "${pattern}" (${meaning}) từ các bối cảnh khác nhau: manga, anime, học đường, du học.`}]
-        })
-      });
-      const data = await res.json();
-      const raw = data.content?.[0]?.text||"{}";
-      setContextEx(JSON.parse(raw.replace(/```json|```/g,"").trim()));
-    } catch(e) { setContextEx({error:"Không tải được ví dụ."}); }
-    setCtxLoading(false);
-  };
-
-  const nuanceColor = n => n==="Trang trọng"?"#2563EB":n==="Thân mật"?"#D97706":n==="Vui vẻ"?"#10B981":n==="Lịch sự"?"#7C3AED":"#64748B";
-
   const DetailPanel = () => (
     <div style={{background:cardBg,borderRadius:20,padding:isMob?"18px":"24px",border:`1px solid ${dark?"rgba(56,189,248,0.2)":"#eee"}`,boxShadow:dark?"0 4px 24px rgba(0,0,0,0.4)":"0 4px 16px rgba(37,99,235,0.08)"}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18,flexWrap:"wrap"}}>
-        <span style={{fontSize:20,fontWeight:900,color:grammarTab==="N4"?"#4338CA":C.primary}}>{g.pattern}</span>
-        {<Badge text={`JLPT ${grammarTab}`} color={grammarTab==="N5"?"#22c55e":grammarTab==="N4"?"#3b82f6":grammarTab==="N3"?"#f59e0b":grammarTab==="N2"?"#ef4444":"#7c3aed"}/>
+        <span style={{fontSize:isMob?18:20,fontWeight:900,color:grammarTab==="N4"?"#4338CA":C.primary,minWidth:0,overflowWrap:"anywhere"}}>{g.pattern}</span>
+        {<span style={{flexShrink:0}}><Badge text={`JLPT ${grammarTab}`} color={grammarTab==="N5"?"#22c55e":grammarTab==="N4"?"#3b82f6":grammarTab==="N3"?"#f59e0b":grammarTab==="N2"?"#ef4444":"#7c3aed"}/></span>
         }
       </div>
 
       {/* Basic info */}
       {[
         {bg:dark?"rgba(37,99,235,0.15)":"#f0f7ff",label:"📌 Ý nghĩa",val:g.meaning,bold:false},
-        grammarTab==="N4"&&g.use?{bg:dark?"rgba(67,56,202,0.12)":"#eef2ff",label:"📐 Cách dùng",val:g.use,bold:false}:null,
+        g.use?{bg:dark?"rgba(67,56,202,0.12)":"#eef2ff",label:"📐 Cách dùng",val:g.use,bold:false}:null,
         {bg:dark?"rgba(15,23,42,0.6)":"#f8f9fa",label:"✏️ Ví dụ",val:g.example,bold:true,color:grammarTab==="N4"?"#4338CA":C.primary},
-        {bg:dark?"rgba(5,150,105,0.1)":"#f0fdf4",label:"🇻🇳 Tiếng Việt",val:(grammarTab==="N4"?g.exVn:g.vn),bold:false},
-        grammarTab==="N4"&&g.note?{bg:dark?"rgba(245,158,11,0.1)":"#fffbeb",label:"⚠️ Lưu ý",val:g.note,bold:false,color:dark?"#FCD34D":"#92400E"}:null,
+        {bg:dark?"rgba(5,150,105,0.1)":"#f0fdf4",label:"🇻🇳 Tiếng Việt",val:g.exVn||g.vn||"Chưa có bản dịch.",bold:false},
+        g.note?{bg:dark?"rgba(245,158,11,0.1)":"#fffbeb",label:"⚠️ Lưu ý",val:g.note,bold:false,color:dark?"#FCD34D":"#92400E"}:null,
       ].filter(Boolean).map((b,i)=>(
         <div key={i} style={{background:b.bg,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${dark?"rgba(255,255,255,0.05)":"transparent"}`}}>
           <div style={{fontSize:11,color:CC.muted,marginBottom:4,fontWeight:700}}>{b.label}</div>
@@ -4005,72 +3960,13 @@ const w=useWidth();const isMob=w<640;
         </div>
       ))}
 
-      {/* Action buttons */}
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        <button onClick={()=>fetchKanji(g.pattern)} className="ba-btn" disabled={kanjiLoading}
-          style={{background:"linear-gradient(135deg,#7C3AED,#4C1D95)",color:"white",padding:"8px 14px",fontSize:12,opacity:kanjiLoading?0.7:1}}>
-          {kanjiLoading?<span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⏳</span>:"🔍"} Kanji Breakdown
-        </button>
-        <button onClick={()=>fetchContext(g.pattern,g.meaning)} className="ba-btn" disabled={ctxLoading}
-          style={{background:"linear-gradient(135deg,#059669,#065f46)",color:"white",padding:"8px 14px",fontSize:12,opacity:ctxLoading?0.7:1}}>
-          {ctxLoading?<span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⏳</span>:"🌟"} Ví dụ Thực Tế
-        </button>
-      </div>
-
-      {/* Kanji Breakdown Panel */}
-      {kanji && !kanji.error && (
-        <div style={{background:dark?"rgba(124,58,237,0.08)":"rgba(124,58,237,0.04)",border:"1.5px solid rgba(124,58,237,0.25)",borderRadius:16,padding:"16px",marginBottom:14}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#7C3AED",marginBottom:12}}>🔍 KANJI BREAKDOWN</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-            {kanji.kanji_parts?.map((kp,i)=>(
-              <div key={i} style={{background:dark?"rgba(124,58,237,0.15)":"rgba(124,58,237,0.08)",border:"1.5px solid rgba(124,58,237,0.3)",borderRadius:14,padding:"10px 14px",minWidth:80,textAlign:"center"}}>
-                <div style={{fontSize:28,fontWeight:900,color:"#7C3AED",marginBottom:4}}>{kp.char}</div>
-                <div style={{fontSize:11,color:dark?"#C4B5FD":"#6D28D9",fontWeight:700}}>{kp.meaning}</div>
-                <div style={{fontSize:9,color:CC.muted,marginTop:2}}>
-                  <span style={{color:"#DC2626"}}>音: {kp.on}</span> / <span style={{color:"#059669"}}>訓: {kp.kun}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {kanji.logic && <div style={{fontSize:13,color:dark?"#DDD6FE":"#4C1D95",marginBottom:8,lineHeight:1.6}}>💡 <strong>Logic:</strong> {kanji.logic}</div>}
-          {kanji.memory_tip && (
-            <div style={{background:dark?"rgba(245,158,11,0.1)":"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:10,padding:"8px 12px",fontSize:12,color:dark?"#FCD34D":"#92400E"}}>
-              🧠 <strong>Mẹo nhớ:</strong> {kanji.memory_tip}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Context Examples Panel */}
-      {contextEx && !contextEx.error && (
-        <div style={{border:"1.5px solid rgba(16,185,129,0.25)",borderRadius:16,padding:"16px",marginBottom:14,background:dark?"rgba(5,150,105,0.06)":"rgba(5,150,105,0.03)"}}>
-          <div style={{fontWeight:800,fontSize:13,color:"#059669",marginBottom:12}}>🌟 VÍ DỤ THỰC TẾ</div>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {contextEx.examples?.map((ex,i)=>(
-              <div key={i} style={{background:dark?"rgba(15,23,42,0.5)":"white",border:`1px solid ${nuanceColor(ex.nuance)}25`,borderRadius:12,padding:"12px 14px",borderLeft:`3px solid ${nuanceColor(ex.nuance)}`}}>
-                <div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
-                  <span style={{fontSize:10,background:`${nuanceColor(ex.nuance)}15`,color:nuanceColor(ex.nuance),fontWeight:700,padding:"2px 8px",borderRadius:20}}>{ex.context}</span>
-                  <span style={{fontSize:10,background:"rgba(148,163,184,0.12)",color:CC.muted,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{ex.nuance}</span>
-                </div>
-                <div style={{fontSize:isMob?15:17,fontWeight:800,color:dark?"white":C.text,marginBottom:4}}>{ex.jp}</div>
-                <div style={{fontSize:13,color:CC.muted,marginBottom:ex.note?4:0}}>{ex.vn}</div>
-                {ex.note && <div style={{fontSize:11,color:nuanceColor(ex.nuance),fontStyle:"italic"}}>💬 {ex.note}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {(kanji?.error || contextEx?.error) && (
-        <div style={{color:"#EF4444",fontSize:12,marginBottom:8}}>{kanji?.error || contextEx?.error}</div>
-      )}
     </div>
   );
 
   return(
     <div style={{maxWidth:900,margin:"0 auto",padding:isMob?"20px 12px":"32px 24px",fontFamily:"'Nunito',sans-serif"}}>
       <h2 style={{fontWeight:900,fontSize:isMob?20:26,color:dark?"white":C.text,marginBottom:4}}>📝 Ngữ Pháp JLPT</h2>
-      <p style={{color:CC.muted,marginBottom:12,fontSize:isMob?13:14}}>{activeGrammar.length} mẫu ngữ pháp · Kanji Breakdown · Ví dụ thực tế</p>
+      <p style={{color:CC.muted,marginBottom:12,fontSize:isMob?13:14}}>{activeGrammar.length} mẫu ngữ pháp</p>
       <div style={{display:"flex",gap:8,marginBottom:20,background:dark?"rgba(30,41,59,0.6)":"rgba(241,245,249,0.9)",borderRadius:16,padding:4,width:"fit-content",maxWidth:"100%",overflowX:"auto"}} className="tab-scroll">
         {[
           {id:"N5",label:"N5 Sơ cấp",count:ALL_GRAMMAR.N5.length},
@@ -4079,7 +3975,7 @@ const w=useWidth();const isMob=w<640;
           {id:"N2",label:"N2 Cao cấp",count:GRAMMAR_N2.length},
           {id:"N1",label:"N1 Thượng cấp",count:GRAMMAR_N1.length}
         ].map(tab=>(
-          <button key={tab.id} onClick={()=>{setGrammarTab(tab.id);setSel(0);setKanji(null);setContextEx(null);}}
+          <button key={tab.id} type="button" onClick={()=>{setGrammarTab(tab.id);setSel(0);}}
             style={{padding:isMob?"8px 14px":"9px 20px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"'Nunito',sans-serif",fontSize:isMob?12:13,fontWeight:800,transition:"all 0.2s",
               background:grammarTab===tab.id?"linear-gradient(135deg,#2563EB,#0EA5E9)":"transparent",
               color:grammarTab===tab.id?"white":CC.muted,
@@ -4091,15 +3987,15 @@ const w=useWidth();const isMob=w<640;
 
       {isMob?(
         <>
-          <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,marginBottom:16,WebkitOverflowScrolling:"touch"}}>
+          <div role="group" aria-label={`Các mẫu ngữ pháp ${grammarTab}`} style={{display:"flex",gap:8,minWidth:0,maxWidth:"100%",overflowX:"auto",overscrollBehaviorX:"contain",scrollSnapType:"x proximity",padding:"4px 2px 10px",marginBottom:16,WebkitOverflowScrolling:"touch"}}>
             {activeGrammar.map((gm,i)=>(
-              <button key={i} onClick={()=>{setSel(i);setKanji(null);setContextEx(null);}} className="ba-btn"
+              <button key={i} type="button" aria-pressed={sel===i} aria-label={`Mẫu ${i+1}: ${gm.pattern}`} title={gm.pattern} onClick={()=>setSel(i)} className="ba-btn"
                 style={{background:sel===i?"linear-gradient(135deg,#38BDF8,#2563EB)":dark?"rgba(30,58,138,0.3)":"white",
                   color:sel===i?"white":dark?"#93C5FD":C.text,
                   border:`1px solid ${sel===i?"transparent":dark?"rgba(56,189,248,0.2)":"#ddd"}`,
-                  padding:"8px 12px",borderRadius:20,fontSize:12,whiteSpace:"nowrap",
+                  flex:"0 0 auto",scrollSnapAlign:"start",padding:"8px 12px",borderRadius:20,fontSize:12,whiteSpace:"nowrap",
                   boxShadow:sel===i?"0 4px 16px rgba(37,99,235,0.3)":"none"}}>
-                {grammarTab==="N4"?`${i+1}. ${(gm.pattern||"").slice(0,10)}`:`Bài ${gm.lesson}`}
+                Mẫu {i+1}
               </button>
             ))}
           </div>
@@ -4109,16 +4005,16 @@ const w=useWidth();const isMob=w<640;
         <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:20}}>
           <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:"75vh",overflowY:"auto",paddingRight:4}}>
             {activeGrammar.map((gm,i)=>(
-              <div key={i} onClick={()=>{setSel(i);setKanji(null);setContextEx(null);}}
+              <button key={i} type="button" aria-pressed={sel===i} onClick={()=>setSel(i)}
                 style={{
                   background:sel===i?dark?"rgba(37,99,235,0.25)":"rgba(37,99,235,0.08)":"transparent",
                   padding:"10px 14px",borderRadius:12,cursor:"pointer",
                   border:`1.5px solid ${sel===i?"rgba(56,189,248,0.4)":"transparent"}`,
-                  transition:"all 0.15s"
+                  transition:"all 0.15s",textAlign:"left",fontFamily:"'Nunito',sans-serif",width:"100%"
                 }}>
                 <div style={{fontWeight:700,color:sel===i?"#38BDF8":dark?"#93C5FD":C.text,fontSize:13}}>{gm.pattern}</div>
-                <div style={{fontSize:10,color:CC.muted}}>{grammarTab==="N4"?`N4 · Mẫu ${i+1}/${GRAMMAR_N4.length}`:`Bài ${gm.lesson} – ${gm.topic}`}</div>
-              </div>
+                <div style={{fontSize:10,color:CC.muted}}>{grammarTab} · Mẫu {i+1} · {gm.meaning}</div>
+              </button>
             ))}
           </div>
           <DetailPanel/>
@@ -19606,7 +19502,7 @@ function pomoComplete(finishedMode, endAt) {
     try { localStorage.setItem("sp_timer_today", JSON.stringify({ date: today, sessions, totalMins })); } catch {}
     try {
       const hmap = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
-      const day = new Date().toISOString().slice(0, 10);
+      const day = todayStr();
       hmap[day] = Math.min(4, (hmap[day] || 0) + 1);
       localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
     } catch {}
@@ -20908,32 +20804,16 @@ const CC = useColors();
     inputRef.current?.focus();
   };
 
-  const normalizeJapanese = value => value.normalize("NFKC").replace(/[\s、。，．！？!?]/g, "");
-  const getMatchPercent = (expectedText, answerText) => {
-    const expected = [...normalizeJapanese(expectedText)];
-    const answer = [...normalizeJapanese(answerText)];
-    if (!expected.length) return 0;
-    let previous = Array.from({ length: answer.length + 1 }, (_, index) => index);
-    for (let i = 1; i <= expected.length; i++) {
-      const current = [i];
-      for (let j = 1; j <= answer.length; j++) {
-        current[j] = Math.min(
-          current[j - 1] + 1,
-          previous[j] + 1,
-          previous[j - 1] + (expected[i - 1] === answer[j - 1] ? 0 : 1)
-        );
-      }
-      previous = current;
-    }
-    return Math.max(0, Math.round((1 - previous[answer.length] / expected.length) * 100));
-  };
-
   const checkAnswer = () => {
     if (!input.trim()) return;
     stopSpeechRecognition();
     setChecked(true);
-    const matchPercent = getMatchPercent(q.jp, input);
-    const correct = inputSource === "speech" ? matchPercent >= 85 : normalizeJapanese(input) === normalizeJapanese(q.jp);
+    const normalize = value => value.normalize("NFKC").replace(/[\s、。，．！？!?]/g, "");
+    const expected = normalize(q.jp);
+    const answer = normalize(input);
+    const matchedChars = [...expected].reduce((count, char, index) => count + (answer[index] === char ? 1 : 0), 0);
+    const matchPercent = expected.length ? Math.round(matchedChars / expected.length * 100) : 0;
+    const correct = inputSource === "speech" ? matchPercent >= 85 : answer === expected;
     setScore(s => ({ correct: s.correct+(correct?1:0), total: s.total+1 }));
     setShowText(true);
   };
@@ -20967,7 +20847,13 @@ const CC = useColors();
 
   const bgCard = dark?"rgba(30,41,59,0.95)":"#FFFFFF";
   const accuracy = score.total > 0 ? Math.round(score.correct/score.total*100) : 0;
-  const speechMatchPercent = getMatchPercent(q.jp, input);
+  const speechMatchPercent = (() => {
+    const normalize = value => value.normalize("NFKC").replace(/[\s、。，．！？!?]/g, "");
+    const expected = normalize(q.jp);
+    const answer = normalize(input);
+    if (!expected.length) return 0;
+    return Math.round([...expected].reduce((count, char, index) => count + (answer[index] === char ? 1 : 0), 0) / expected.length * 100);
+  })();
 
   return (
     <div style={{ maxWidth:720, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
@@ -21022,13 +20908,13 @@ const CC = useColors();
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:8 }}>
             <div style={{ fontSize:12, color:CC.muted, fontWeight:700 }}>NÓI LẠI CÂU TIẾNG NHẬT VỪA NGHE:</div>
             {speechSupported && !checked && (
-              <button type="button" onClick={listeningForSpeech ? stopSpeechRecognition : startSpeechRecognition}
-                aria-pressed={listeningForSpeech}
-                style={{ border:`1px solid ${listeningForSpeech?"rgba(239,68,68,0.5)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
-                  padding:"8px 12px", background:listeningForSpeech?"rgba(239,68,68,0.12)":"rgba(124,58,237,0.08)",
-                  color:listeningForSpeech?"#EF4444":"#7C3AED", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
-                {listeningForSpeech ? "⏹ Dừng ghi âm" : "🎙️ Nói câu này"}
-              </button>
+                <button type="button" onClick={listeningForSpeech ? stopSpeechRecognition : startSpeechRecognition}
+                  aria-pressed={listeningForSpeech}
+                  style={{ border:`1px solid ${listeningForSpeech?"rgba(239,68,68,0.5)":"rgba(124,58,237,0.35)"}`, borderRadius:10,
+                    padding:"8px 12px", background:listeningForSpeech?"rgba(239,68,68,0.12)":"rgba(124,58,237,0.08)",
+                    color:listeningForSpeech?"#EF4444":"#7C3AED", fontSize:12, fontWeight:800, cursor:"pointer", fontFamily:"'Nunito',sans-serif" }}>
+                  {listeningForSpeech ? "⏹ Dừng ghi âm" : "🎙️ Nói câu này"}
+                </button>
             )}
           </div>
           <textarea ref={inputRef} value={input} onChange={e=>{setInput(e.target.value);setInputSource("typed");}}
@@ -23828,10 +23714,14 @@ function CulturePage() {
 // HEATMAP PAGE
 // ════════════════════════════════════════════════════════════════
 function HeatmapPage() {
-    const t = useT();
 const CC = useColors();
   const [dark] = useDarkMode();
   const w = useWidth(); const isMob = w < 640;
+  const heatmapScrollRef = useRef(null);
+  useEffect(() => {
+    const scroller = heatmapScrollRef.current;
+    if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+  }, []);
 
   // Read streak data (persisted by useStreak hook)
   const streakData = (() => {
@@ -23845,9 +23735,15 @@ const CC = useColors();
   const heatData = (() => {
     try {
       const raw = JSON.parse(localStorage.getItem("sp_heatmap") || "{}");
-      // Mark all activeDays with at least 1 if not already set
-      activeDays.forEach(d => { if (!raw[d]) raw[d] = 1; });
-      return raw;
+      const normalized = {};
+      Object.entries(raw).forEach(([date, value]) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+        const count = Math.max(0, Math.min(4, Math.floor(Number(value) || 0)));
+        if (count > 0) normalized[date] = count;
+      });
+      // Streak dates are a backup source for days that have no session count yet.
+      activeDays.forEach(date => { if (!normalized[date]) normalized[date] = 1; });
+      return normalized;
     } catch { return {}; }
   })();
 
@@ -23861,8 +23757,8 @@ const CC = useColors();
   const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   // Start from ~52 weeks ago, on a Monday
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - 363);
+  const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  startDate.setDate(startDate.getDate() - 364);
   const dayOfWeek = startDate.getDay();
   startDate.setDate(startDate.getDate() - (dayOfWeek===0?6:dayOfWeek-1));
 
@@ -23872,7 +23768,7 @@ const CC = useColors();
   let weekIdx = 0;
 
   while (cur <= today) {
-    const key = cur.toISOString().slice(0,10);
+    const key = toLocalDateKey(cur);
     const val = heatData[key] || 0;
     if (cur.getDate()<=7 && currentWeek.length===0) {
       monthPositions.push({weekIdx, month: cur.getMonth()});
@@ -23891,12 +23787,14 @@ const CC = useColors();
     return dark?"#16A34A":"#15803D";
   };
 
-  const totalDays  = Object.values(heatData).filter(v=>v>0).length;
-  const totalSess  = Object.values(heatData).reduce((a,b)=>a+b,0);
+  const visibleDays = weeks.flat();
+  const totalDays  = visibleDays.filter(day=>day.val>0).length;
+  const totalSess  = visibleDays.reduce((sum,day)=>sum+day.val,0);
   const kanjiLearned = Object.keys(kanjiStats).length;
 
-  const CELL = isMob ? 11 : 14;
-  const GAP  = isMob ? 2  : 3;
+  const CELL = isMob ? 11 : 12;
+  const GAP  = 2;
+  const LABEL_WIDTH = isMob ? 28 : 32;
 
   return (
     <div style={{ maxWidth:860, margin:"0 auto", padding:isMob?"14px 10px":"32px 24px", fontFamily:"'Nunito',sans-serif" }}>
@@ -23917,13 +23815,15 @@ const CC = useColors();
       </div>
 
       {/* Heatmap grid */}
-      <div style={{ background:dark?"rgba(30,41,59,0.95)":"#FFFFFF", borderRadius:20, padding:isMob?"16px 12px":"24px 28px",
+      <div ref={heatmapScrollRef} className="heatmap-scroll" role="region" aria-label="Bản đồ hoạt động học tập 12 tháng qua" tabIndex={0}
+        style={{ background:dark?"rgba(30,41,59,0.95)":"#FFFFFF", borderRadius:20, padding:isMob?"16px 12px":"24px 28px",
         border:`1px solid ${dark?"rgba(22,163,74,0.2)":"rgba(22,163,74,0.12)"}`,
-        marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", scrollbarWidth:"thin" }}>
-        <div style={{ fontSize:13, fontWeight:800, color:"#16A34A", marginBottom:14 }}>Hoạt động 12 tháng qua</div>
+        marginBottom:20, overflowX:"auto", overscrollBehaviorX:"contain", WebkitOverflowScrolling:"touch", scrollbarWidth:"thin" }}>
+        <div style={{ fontSize:13, fontWeight:800, color:"#16A34A", marginBottom:4 }}>Hoạt động 12 tháng qua</div>
+        <div style={{ fontSize:11, color:CC.muted, marginBottom:12 }}>Mới nhất ở bên phải · cuộn ngang để xem các tháng trước</div>
 
         {/* Month labels */}
-        <div style={{ display:"flex", gap:GAP, marginBottom:4, marginLeft:isMob?18:22 }}>
+        <div style={{ display:"flex", gap:GAP, marginBottom:4, marginLeft:LABEL_WIDTH+4 }}>
           {weeks.map((wk,wi)=>{
             const mp = monthPositions.find(m=>m.weekIdx===wi);
             return (
@@ -23934,9 +23834,9 @@ const CC = useColors();
           })}
         </div>
 
-        <div style={{ display:"flex", gap:4 }}>
+          <div style={{ display:"flex", gap:4 }}>
           {/* Day labels */}
-          <div style={{ display:"flex", flexDirection:"column", gap:GAP, marginRight:2 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:GAP, width:LABEL_WIDTH, flexShrink:0 }}>
             {DAY_LABELS.map((d,i)=>(
               <div key={i} style={{ height:CELL, fontSize:9, color:CC.muted, display:"flex", alignItems:"center", lineHeight:1 }}>{d}</div>
             ))}
@@ -23947,10 +23847,10 @@ const CC = useColors();
               <div key={wi} style={{ display:"flex", flexDirection:"column", gap:GAP }}>
                 {wk.map((day,di)=>(
                   <div key={di}
-                    title={`${day.date}: ${day.val===0?"Không học":day.val===1?"Ít":day.val===2?"Trung bình":day.val===3?"Nhiều":"Rất nhiều"}`}
+                    title={`${day.date}: ${day.val===0?"Không có hoạt động":`${day.val}${day.val===4?"+":""} hoạt động`}`}
                     style={{ width:CELL, height:CELL, borderRadius:isMob?2:3,
                       background:getColor(day.val),
-                      border:day.date===today.toISOString().slice(0,10)?`2px solid #16A34A`:(activeDays.includes(day.date)?`1px solid rgba(22,163,74,0.4)`:"none"),
+                      border:day.date===todayStr()?`2px solid #16A34A`:(activeDays.includes(day.date)?`1px solid rgba(22,163,74,0.4)`:"none"),
                       transition:"transform 0.1s",cursor:"default" }}
                   />
                 ))}
@@ -23960,13 +23860,14 @@ const CC = useColors();
         </div>
 
         {/* Legend */}
-        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:12, justifyContent:"flex-end" }}>
-          <span style={{ fontSize:10, color:CC.muted }}>Ít</span>
+        <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:12, justifyContent:"flex-end" }} aria-label="Chú giải số buổi học mỗi ngày">
+          <span style={{ fontSize:10, color:CC.muted }}>0 hoạt động</span>
           {[0,1,2,3,4].map(v=>(
-            <div key={v} style={{ width:CELL, height:CELL, borderRadius:3, background:getColor(v) }}/>
+            <div key={v} title={`${v}${v===4?"+":""} hoạt động`} style={{ width:CELL, height:CELL, borderRadius:3, background:getColor(v) }}/>
           ))}
-          <span style={{ fontSize:10, color:CC.muted }}>Nhiều</span>
+          <span style={{ fontSize:10, color:CC.muted }}>4+ hoạt động</span>
         </div>
+        {totalDays===0 && <div role="status" style={{fontSize:11,color:CC.muted,marginTop:8,textAlign:"right"}}>Chưa có hoạt động nào được ghi nhận trong 12 tháng qua.</div>}
       </div>
 
       {/* Stats grid */}
@@ -23974,13 +23875,13 @@ const CC = useColors();
         {[
           {icon:"🔥",val:currentStreak,label:"Streak hiện tại",sub:"ngày liên tiếp",color:"#EA580C"},
           {icon:"📅",val:totalDays,label:"Tổng ngày học",sub:"trong năm qua",color:"#16A34A"},
-          {icon:"⚡",val:totalSess,label:"Tổng buổi học",sub:"sessions",color:"#D97706"},
+          {icon:"⚡",val:totalSess,label:"Hoạt động ghi nhận",sub:"tối đa 4 mức/ngày",color:"#D97706"},
           {icon:"🏆",val:highestStreak,label:"Streak cao nhất",sub:"kỷ lục cá nhân",color:"#D97706"},
           {icon:"🈶",val:kanjiLearned,label:"Kanji đã học",sub:"ký tự",color:"#7C3AED"},
           {icon:"📚",val:vocabCount,label:"Từ vựng",sub:"đã học",color:"#2563EB"},
-          {icon:"📊",val:Math.round(totalDays/Math.max(Object.keys(heatData).length,1)*100)+"%",label:"Tỷ lệ học",sub:"ngày có học / tổng",color:"#0891B2"},
-          {icon:"🌟",val:Object.values(heatData).filter(v=>v>=3).length,label:"Ngày học nhiều",sub:"≥ 3 sessions",color:"#BE185D"},
-          {icon:"🎯",val:Object.values(heatData).filter(v=>v>=4).length,label:"Ngày xuất sắc",sub:"4+ sessions",color:"#059669"},
+          {icon:"📊",val:Math.round(totalDays/Math.max(visibleDays.length,1)*100)+"%",label:"Tỷ lệ học",sub:"ngày có học / 12 tháng",color:"#0891B2"},
+          {icon:"🌟",val:visibleDays.filter(day=>day.val>=3).length,label:"Ngày học nhiều",sub:"3+ buổi ghi nhận",color:"#BE185D"},
+          {icon:"🎯",val:visibleDays.filter(day=>day.val>=4).length,label:"Ngày học rất nhiều",sub:"4+ buổi ghi nhận",color:"#059669"},
         ].map((s,i)=>(
           <div key={i} style={{ background:dark?"rgba(30,41,59,0.95)":"#FFFFFF", borderRadius:16, padding:"16px 14px", textAlign:"center",
             border:`1px solid ${dark?s.color+"22":s.color+"14"}` }}>
@@ -24038,13 +23939,13 @@ const CC = useColors();
   };
 
   // Quiz: simple MC with 1 correct + 3 wrong meanings from pool
-  const quizOptions = (() => {
+  const quizOptions = useMemo(() => {
     const correct = lesson.type==="grammar" ? lesson.vn : (lesson.vn);
     const pool = MINI_LESSONS.filter(m=>m.id!==lesson.id&&m.type===lesson.type).map(m=>m.vn).slice(0,3);
     while (pool.length<3) pool.push(["Không đúng","Sai rồi",t.speakTry][pool.length]);
     const opts = [...pool.slice(0,3), correct].sort(()=>Math.random()-0.5);
     return {opts, ansIdx: opts.indexOf(correct)};
-  })();
+  }, [lesson.id, lesson.type, lesson.vn, t.speakTry]);
 
   const markDone = () => {
     const newStreak = streak + 1;
@@ -24055,7 +23956,7 @@ const CC = useColors();
     localStorage.setItem("sp_mini_today", JSON.stringify({date:new Date().toDateString(), count:newCount}));
     // Update heatmap
     const hmap = (() => { try { return JSON.parse(localStorage.getItem("sp_heatmap")||"{}"); } catch { return {}; } })();
-    const today = new Date().toISOString().slice(0,10);
+    const today = todayStr();
     hmap[today] = Math.min(4,(hmap[today]||0)+1);
     localStorage.setItem("sp_heatmap", JSON.stringify(hmap));
     setPhase("done");
@@ -24465,15 +24366,19 @@ const CC = useColors();
 
   // Mini heatmap (last 10 weeks)
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const miniWeeks = [];
-  for (let w = 9; w >= 0; w--) {
+  const daysSinceMonday = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const miniStart = new Date(today);
+  miniStart.setDate(miniStart.getDate() - daysSinceMonday - 63);
+  for (let w = 0; w < 10; w++) {
     const week = [];
-    for (let d = 6; d >= 0; d--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - w * 7 - d);
-      const key = date.toISOString().slice(0, 10);
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(miniStart);
+      date.setDate(miniStart.getDate() + w * 7 + d);
+      const key = toLocalDateKey(date);
       const isActive = activeDays.includes(key);
-      week.push({ key, val: heatData[key] || (isActive ? 1 : 0) });
+      week.push({ key, val: date > today ? 0 : heatData[key] || (isActive ? 1 : 0) });
     }
     miniWeeks.push(week);
   }
@@ -24634,15 +24539,15 @@ const CC = useColors();
           {miniWeeks.map((wk, wi) => (
             <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {wk.map((day, di) => (
-                <div key={di} style={{ width: isMob ? 10 : 14, height: isMob ? 10 : 14, borderRadius: 2, background: heatColor(day.val), border: day.key === today.toISOString().slice(0, 10) ? "1.5px solid #16A34A" : "none" }} />
+                <div key={di} title={`${day.key}: ${day.val === 0 ? "Không học" : `${day.val}${day.val === 4 ? "+" : ""} buổi`}`} style={{ width: isMob ? 10 : 14, height: isMob ? 10 : 14, borderRadius: 2, background: heatColor(day.val), border: day.key === todayStr() ? "1.5px solid #16A34A" : "none" }} />
               ))}
             </div>
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, justifyContent: "flex-end" }}>
-          <span style={{ fontSize: 10, color: CC.muted }}>Ít</span>
-          {[0, 1, 2, 3, 4].map(v => <div key={v} style={{ width: 12, height: 12, borderRadius: 2, background: heatColor(v) }} />)}
-          <span style={{ fontSize: 10, color: CC.muted }}>Nhiều</span>
+          <span style={{ fontSize: 10, color: CC.muted }}>0</span>
+          {[0, 1, 2, 3, 4].map(v => <div key={v} title={`${v}${v === 4 ? "+" : ""} hoạt động`} style={{ width: 12, height: 12, borderRadius: 2, background: heatColor(v) }} />)}
+          <span style={{ fontSize: 10, color: CC.muted }}>4+ buổi</span>
         </div>
       </div>
 
